@@ -326,7 +326,7 @@ func (r *PdfPageResources) GetXObjectByName(keyName PdfObjectName) (*PdfObjectSt
 		}
 		dict := stream.PdfObjectDictionary
 
-		name, ok := dict.Get("Subtype").(*PdfObjectName)
+		name, ok := TraceToDirectObject(dict.Get("Subtype")).(*PdfObjectName)
 		if !ok {
 			common.Log.Debug("XObject Subtype not a Name, dict: %s", dict.String())
 			return nil, XObjectTypeUndefined
