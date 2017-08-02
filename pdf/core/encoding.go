@@ -507,12 +507,19 @@ func newLZWEncoderFromStream(streamObj *PdfObjectStream, decodeParams *PdfObject
 	if decodeParams == nil {
 		obj := encDict.Get("DecodeParms")
 		if obj != nil {
-			dp, isDict := obj.(*PdfObjectDictionary)
-			if !isDict {
-				common.Log.Debug("Error: DecodeParms not a dictionary (%T)", obj)
+			if dp, isDict := obj.(*PdfObjectDictionary); isDict {
+				decodeParams = dp
+			} else if a, isArr := obj.(*PdfObjectArray); isArr {
+				if len(*a) == 1 {
+					if dp, isDict := (*a)[0].(*PdfObjectDictionary); isDict {
+						decodeParams = dp
+					}
+				}
+			}
+			if decodeParams == nil {
+				common.Log.Error("DecodeParms not a dictionary %#v", obj)
 				return nil, fmt.Errorf("Invalid DecodeParms")
 			}
-			decodeParams = dp
 		}
 	}
 
