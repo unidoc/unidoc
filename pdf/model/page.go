@@ -400,6 +400,11 @@ func (this *PdfPage) GetMediaBox() (*PdfRectangle, error) {
 	return nil, errors.New("Media box not defined")
 }
 
+// GetResources returns the inheritable resources, either from the page or or a higher up page/pages struct.
+func (this *PdfPage) GetResources() (*PdfPageResources, error) {
+	return this.getResources()
+}
+
 // Get the inheritable resources, either from the page or or a higher up page/pages struct.
 func (this *PdfPage) getResources() (*PdfPageResources, error) {
 	if this.Resources != nil {
