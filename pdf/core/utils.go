@@ -38,6 +38,18 @@ func getUniDocVersion() string {
 	return common.Version
 }
 
+// GetObjectNums returns the object numbers of the PDF objects in the file
+func (this *PdfParser) GetObjectNums() (map[int]int, error) {
+	common.Log.Trace("--------GetObjectNums ----------")
+	common.Log.Trace("Xref table:")
+
+	keyObjnum := map[int]int{}
+	for k, x := range this.xrefs {
+		keyObjnum[k] = x.objectNumber
+	}
+	return keyObjnum, nil
+}
+
 /*
  * Inspect object types.
  * Go through all objects in the cross ref table and detect the types.
