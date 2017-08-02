@@ -673,7 +673,6 @@ func (this *PdfParser) parsePdfVersion() (int, int, error) {
 		return 0, 0, err
 	}
 
-	//version, _ := strconv.Atoi(result1[1])
 	common.Log.Debug("Pdf version %d.%d", majorVersion, minorVersion)
 
 	return int(majorVersion), int(minorVersion), nil

@@ -43,7 +43,7 @@ func NewEncoderFromStream(streamObj *PdfObjectStream) (StreamEncoder, error) {
 				return nil, err
 			}
 
-			common.Log.Trace("Multi enc: %s\n", menc)
+			common.Log.Trace("Multi enc: %s", menc)
 			return menc, nil
 		}
 
