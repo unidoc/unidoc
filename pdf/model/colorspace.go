@@ -1171,7 +1171,7 @@ func (this *PdfColorspaceCalRGB) ImageToRGB(img Image) (Image, error) {
 	maxVal := math.Pow(2, float64(img.BitsPerComponent)) - 1
 
 	rgbSamples := []uint32{}
-	for i := 0; i < len(samples); i++ {
+	for i := 0; i < len(samples)-2; i++ {
 		// A, B, C in range 0.0 to 1.0
 		aVal := float64(samples[i]) / maxVal
 		bVal := float64(samples[i+1]) / maxVal
