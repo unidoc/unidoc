@@ -11,9 +11,9 @@ import (
 	"github.com/unidoc/unidoc/common"
 )
 
-// Creates the encoder from the stream's dictionary.
+// NewEncoderFromStream creates an encoder from `streamObj`'s dictionary.
 func NewEncoderFromStream(streamObj *PdfObjectStream) (StreamEncoder, error) {
-	filterObj := streamObj.PdfObjectDictionary.Get("Filter")
+	filterObj := TraceToDirectObject(streamObj.PdfObjectDictionary.Get("Filter"))
 	if filterObj == nil {
 		// No filter, return raw data back.
 		return NewRawEncoder(), nil
@@ -61,10 +61,18 @@ func NewEncoderFromStream(streamObj *PdfObjectStream) (StreamEncoder, error) {
 		return newLZWEncoderFromStream(streamObj, nil)
 	} else if *method == StreamEncodingFilterNameDCT {
 		return newDCTEncoderFromStream(streamObj, nil)
+	} else if *method == StreamEncodingFilterNameRunLength {
+		return newRunLengthEncoderFromStream(streamObj, nil)
 	} else if *method == StreamEncodingFilterNameASCIIHex {
 		return NewASCIIHexEncoder(), nil
 	} else if *method == StreamEncodingFilterNameASCII85 {
 		return NewASCII85Encoder(), nil
+	} else if *method == StreamEncodingFilterNameCCITTFax {
+		return NewCCITTFaxEncoder(), nil
+	} else if *method == StreamEncodingFilterNameJBIG2 {
+		return NewJBIG2Encoder(), nil
+	} else if *method == StreamEncodingFilterNameJPX {
+		return NewJPXEncoder(), nil
 	} else {
 		common.Log.Debug("ERROR: Unsupported encoding method!")
 		return nil, fmt.Errorf("Unsupported encoding method (%s)", *method)

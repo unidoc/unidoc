@@ -10,8 +10,12 @@ package core
 // - FlateDecode
 // - LZW
 // - DCT Decode (JPEG)
+// - RunLength
 // - ASCII Hex
 // - ASCII85
+// - CCITT Fax (dummy)
+// - JBIG2 (dummy)
+// - JPX (dummy)
 
 import (
 	"bytes"
@@ -33,12 +37,16 @@ import (
 )
 
 const (
-	StreamEncodingFilterNameFlate    = "FlateDecode"
-	StreamEncodingFilterNameLZW      = "LZWDecode"
-	StreamEncodingFilterNameDCT      = "DCTDecode"
-	StreamEncodingFilterNameASCIIHex = "ASCIIHexDecode"
-	StreamEncodingFilterNameASCII85  = "ASCII85Decode"
-	StreamEncodingFilterNameRaw      = "Raw"
+	StreamEncodingFilterNameFlate     = "FlateDecode"
+	StreamEncodingFilterNameLZW       = "LZWDecode"
+	StreamEncodingFilterNameDCT       = "DCTDecode"
+	StreamEncodingFilterNameRunLength = "RunLengthDecode"
+	StreamEncodingFilterNameASCIIHex  = "ASCIIHexDecode"
+	StreamEncodingFilterNameASCII85   = "ASCII85Decode"
+	StreamEncodingFilterNameCCITTFax  = "CCITTFaxDecode"
+	StreamEncodingFilterNameJBIG2     = "JBIG2Decode"
+	StreamEncodingFilterNameJPX       = "JPXDecode"
+	StreamEncodingFilterNameRaw       = "Raw"
 )
 
 const (
@@ -1060,6 +1068,137 @@ func (this *DCTEncoder) EncodeBytes(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Run length encoding.
+type RunLengthEncoder struct {
+}
+
+// Make a new run length encoder
+func NewRunLengthEncoder() *RunLengthEncoder {
+	return &RunLengthEncoder{}
+}
+
+func (this *RunLengthEncoder) GetFilterName() string {
+	return StreamEncodingFilterNameRunLength
+}
+
+// Create a new run length decoder from a stream object.
+func newRunLengthEncoderFromStream(streamObj *PdfObjectStream, decodeParams *PdfObjectDictionary) (*RunLengthEncoder, error) {
+	return NewRunLengthEncoder(), nil
+}
+
+/*
+	7.4.5 RunLengthDecode Filter
+	The RunLengthDecode filter decodes data that has been encoded in a simple byte-oriented format based on run length.
+	The encoded data shall be a sequence of runs, where each run shall consist of a length byte followed by 1 to 128
+	bytes of data. If the length byte is in the range 0 to 127, the following length + 1 (1 to 128) bytes shall be
+	copied literally during decompression. If length is in the range 129 to 255, the following single byte shall be
+	copied 257 - length (2 to 128) times during decompression. A length value of 128 shall denote EOD.
+*/
+func (this *RunLengthEncoder) DecodeBytes(encoded []byte) ([]byte, error) {
+	bufReader := bytes.NewReader(encoded)
+	inb := []byte{}
+	for {
+		b, err := bufReader.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+		if b > 128 {
+			v, err := bufReader.ReadByte()
+			if err != nil {
+				return nil, err
+			}
+			for i := 0; i < 257-int(b); i++ {
+				inb = append(inb, v)
+			}
+		} else if b < 128 {
+			for i := 0; i < int(b)+1; i++ {
+				v, err := bufReader.ReadByte()
+				if err != nil {
+					return nil, err
+				}
+				inb = append(inb, v)
+			}
+		} else {
+			break
+		}
+	}
+
+	return inb, nil
+}
+
+// Decode RunLengthEncoded stream object and give back decoded bytes.
+func (this *RunLengthEncoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error) {
+	return this.DecodeBytes(streamObj.Stream)
+}
+
+// Encode a bytes array and return the encoded value based on the encoder parameters.
+func (this *RunLengthEncoder) EncodeBytes(data []byte) ([]byte, error) {
+	bufReader := bytes.NewReader(data)
+	inb := []byte{}
+	literal := []byte{}
+
+	b0, err := bufReader.ReadByte()
+	if err == io.EOF {
+		return []byte{}, nil
+	} else if err != nil {
+		return nil, err
+	}
+	runLen := 1
+
+	for {
+		b, err := bufReader.ReadByte()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+
+		if b == b0 {
+
+			if len(literal) > 0 {
+				inb = append(inb, byte(len(literal)-1))
+				inb = append(inb, literal...)
+			}
+			runLen++
+			if runLen > 127 {
+				inb = append(inb, byte(257-runLen), b0)
+				runLen = 1
+			}
+
+		} else {
+			if runLen > 0 {
+				inb = append(inb, byte(257-runLen), b0)
+				runLen = 0
+			}
+			literal = append(literal, b)
+			if len(literal) > 127 {
+				inb = append(inb, byte(len(literal)-1))
+				inb = append(inb, literal...)
+				literal = []byte{}
+			}
+		}
+		b0 = b
+	}
+	if len(literal) > 0 {
+		inb = append(inb, byte(len(literal)-2))
+		inb = append(inb, literal...)
+	} else if runLen > 0 {
+		inb = append(inb, byte(runLen-2), b0)
+	}
+	return inb, nil
+}
+
+func (this *RunLengthEncoder) MakeDecodeParams() PdfObject {
+	return nil
+}
+
+// Make a new instance of an encoding dictionary for a stream object.
+func (this *RunLengthEncoder) MakeStreamDict() *PdfObjectDictionary {
+	dict := MakeDict()
+	dict.Set("Filter", MakeName(this.GetFilterName()))
+	return dict
+}
+
 /////
 // ASCII hex encoder/decoder.
 type ASCIIHexEncoder struct {
@@ -1338,6 +1477,122 @@ func (this *RawEncoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error)
 }
 
 func (this *RawEncoder) EncodeBytes(data []byte) ([]byte, error) {
+	return data, nil
+}
+
+//
+// CCITTFax encoder/decoder (dummy, for now)
+//
+type CCITTFaxEncoder struct{}
+
+var ErrNoCCITT = errors.New("CCITTFaxEncoder is not implemented")
+
+func NewCCITTFaxEncoder() *CCITTFaxEncoder {
+	return &CCITTFaxEncoder{}
+}
+
+func (this *CCITTFaxEncoder) GetFilterName() string {
+	return StreamEncodingFilterNameCCITTFax
+}
+
+func (this *CCITTFaxEncoder) MakeDecodeParams() PdfObject {
+	// panic(ErrNoCCITT)
+	return nil
+}
+
+// Make a new instance of an encoding dictionary for a stream object.
+func (this *CCITTFaxEncoder) MakeStreamDict() *PdfObjectDictionary {
+	// panic(ErrNoCCITT)
+	return MakeDict()
+}
+
+func (this *CCITTFaxEncoder) DecodeBytes(encoded []byte) ([]byte, error) {
+	// panic(ErrNoCCITT)
+	return encoded, nil
+}
+
+func (this *CCITTFaxEncoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error) {
+	// panic(ErrNoCCITT)
+	return streamObj.Stream, nil
+}
+
+func (this *CCITTFaxEncoder) EncodeBytes(data []byte) ([]byte, error) {
+	// panic(ErrNoCCITT)
+	return data, nil
+}
+
+//
+// JBIG2 encoder/decoder (dummy, for now)
+//
+type JBIG2Encoder struct{}
+
+var ErrNoJBIG2 = errors.New("JBIG2Encoder is not implemented")
+
+func NewJBIG2Encoder() *JBIG2Encoder {
+	return &JBIG2Encoder{}
+}
+
+func (this *JBIG2Encoder) GetFilterName() string {
+	return StreamEncodingFilterNameJBIG2
+}
+
+func (this *JBIG2Encoder) MakeDecodeParams() PdfObject {
+	// panic(ErrNoCCITT)
+	return nil
+}
+
+// Make a new instance of an encoding dictionary for a stream object.
+func (this *JBIG2Encoder) MakeStreamDict() *PdfObjectDictionary {
+	// panic(ErrNoCCITT)
+	return MakeDict()
+}
+
+func (this *JBIG2Encoder) DecodeBytes(encoded []byte) ([]byte, error) {
+	// panic(ErrNoCCITT)
+	return encoded, nil
+}
+
+func (this *JBIG2Encoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error) {
+	// panic(ErrNoCCITT)
+	return streamObj.Stream, nil
+}
+
+func (this *JBIG2Encoder) EncodeBytes(data []byte) ([]byte, error) {
+	// panic(ErrNoCCITT)
+	return data, nil
+}
+
+//
+// JPX encoder/decoder (dummy, for now)
+//
+type JPXEncoder struct{}
+
+func NewJPXEncoder() *JPXEncoder {
+	return &JPXEncoder{}
+}
+
+func (this *JPXEncoder) GetFilterName() string {
+	return StreamEncodingFilterNameJPX
+}
+
+func (this *JPXEncoder) MakeDecodeParams() PdfObject {
+	return nil
+}
+
+// Make a new instance of an encoding dictionary for a stream object.
+func (this *JPXEncoder) MakeStreamDict() *PdfObjectDictionary {
+	return MakeDict()
+}
+
+func (this *JPXEncoder) DecodeBytes(encoded []byte) ([]byte, error) {
+	return encoded, nil
+}
+
+func (this *JPXEncoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error) {
+	return streamObj.Stream, nil
+}
+
+func (this *JPXEncoder) EncodeBytes(data []byte) ([]byte, error) {
 	return data, nil
 }
 
