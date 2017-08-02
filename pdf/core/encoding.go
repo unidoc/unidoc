@@ -1485,8 +1485,6 @@ func (this *RawEncoder) EncodeBytes(data []byte) ([]byte, error) {
 //
 type CCITTFaxEncoder struct{}
 
-var ErrNoCCITT = errors.New("CCITTFaxEncoder is not implemented")
-
 func NewCCITTFaxEncoder() *CCITTFaxEncoder {
 	return &CCITTFaxEncoder{}
 }
@@ -1496,28 +1494,23 @@ func (this *CCITTFaxEncoder) GetFilterName() string {
 }
 
 func (this *CCITTFaxEncoder) MakeDecodeParams() PdfObject {
-	// panic(ErrNoCCITT)
 	return nil
 }
 
 // Make a new instance of an encoding dictionary for a stream object.
 func (this *CCITTFaxEncoder) MakeStreamDict() *PdfObjectDictionary {
-	// panic(ErrNoCCITT)
 	return MakeDict()
 }
 
 func (this *CCITTFaxEncoder) DecodeBytes(encoded []byte) ([]byte, error) {
-	// panic(ErrNoCCITT)
 	return encoded, nil
 }
 
 func (this *CCITTFaxEncoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error) {
-	// panic(ErrNoCCITT)
 	return streamObj.Stream, nil
 }
 
 func (this *CCITTFaxEncoder) EncodeBytes(data []byte) ([]byte, error) {
-	// panic(ErrNoCCITT)
 	return data, nil
 }
 
@@ -1537,28 +1530,23 @@ func (this *JBIG2Encoder) GetFilterName() string {
 }
 
 func (this *JBIG2Encoder) MakeDecodeParams() PdfObject {
-	// panic(ErrNoCCITT)
 	return nil
 }
 
 // Make a new instance of an encoding dictionary for a stream object.
 func (this *JBIG2Encoder) MakeStreamDict() *PdfObjectDictionary {
-	// panic(ErrNoCCITT)
 	return MakeDict()
 }
 
 func (this *JBIG2Encoder) DecodeBytes(encoded []byte) ([]byte, error) {
-	// panic(ErrNoCCITT)
 	return encoded, nil
 }
 
 func (this *JBIG2Encoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error) {
-	// panic(ErrNoCCITT)
 	return streamObj.Stream, nil
 }
 
 func (this *JBIG2Encoder) EncodeBytes(data []byte) ([]byte, error) {
-	// panic(ErrNoCCITT)
 	return data, nil
 }
 
