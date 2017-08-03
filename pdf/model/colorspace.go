@@ -261,10 +261,6 @@ func (this *PdfColorDeviceRGB) GetNumComponents() int {
 	return 3
 }
 
-func (this *PdfColorDeviceRGB) IsColored() bool {
-	return visible(this[0]-this[1], this[0]-this[2], this[1]-this[2])
-}
-
 func (this *PdfColorDeviceRGB) R() float64 {
 	return float64(this[0])
 }
@@ -397,23 +393,6 @@ func (this *PdfColorspaceDeviceRGB) ImageToGray(img Image) (Image, error) {
 	return grayImage, nil
 }
 
-func (this *PdfColorspaceDeviceRGB) IsImageColored(img Image) bool {
-
-	samples := img.GetSamples()
-	maxVal := math.Pow(2, float64(img.BitsPerComponent)) - 1
-
-	for i := 0; i < len(samples); i += 3 {
-		// Normalized data, range 0-1.
-		r := float64(samples[i]) / maxVal
-		g := float64(samples[i+1]) / maxVal
-		b := float64(samples[i+2]) / maxVal
-		if visible(r-g, r-b, g-b) {
-			return true
-		}
-	}
-	return false
-}
-
 //////////////////////
 // DeviceCMYK
 // C, M, Y, K components.
@@ -429,10 +408,6 @@ func NewPdfColorDeviceCMYK(c, m, y, k float64) *PdfColorDeviceCMYK {
 
 func (this *PdfColorDeviceCMYK) GetNumComponents() int {
 	return 4
-}
-
-func (this *PdfColorDeviceCMYK) IsColored() bool {
-	return visible(this[0]-this[1], this[0]-this[2], this[1]-this[2])
 }
 
 func (this *PdfColorDeviceCMYK) C() float64 {
@@ -622,10 +597,6 @@ func (this *PdfColorCalGray) GetNumComponents() int {
 	return 1
 }
 
-func (this *PdfColorCalGray) IsColored() bool {
-	return false
-}
-
 func (this *PdfColorCalGray) Val() float64 {
 	return float64(*this)
 }
@@ -793,7 +764,6 @@ func (this *PdfColorspaceCalGray) ColorFromFloats(vals []float64) (PdfColor, err
 
 func (this *PdfColorspaceCalGray) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 1 {
-		common.Log.Error("len(objects)=%d. Should be 1. objects=%#v", len(objects), objects)
 		return nil, errors.New("Range check")
 	}
 
@@ -889,10 +859,6 @@ func NewPdfColorCalRGB(a, b, c float64) *PdfColorCalRGB {
 
 func (this *PdfColorCalRGB) GetNumComponents() int {
 	return 3
-}
-
-func (this *PdfColorCalRGB) IsColored() bool {
-	return visible(this[0]-this[1], this[0]-this[2], this[1]-this[2])
 }
 
 func (this *PdfColorCalRGB) A() float64 {
@@ -1221,10 +1187,6 @@ func NewPdfColorLab(l, a, b float64) *PdfColorLab {
 
 func (this *PdfColorLab) GetNumComponents() int {
 	return 3
-}
-
-func (this *PdfColorLab) IsColored() bool {
-	return visible(this[1], this[2])
 }
 
 func (this *PdfColorLab) L() float64 {
@@ -2695,19 +2657,4 @@ func (this *PdfColorspaceDeviceNAttributes) ToPdfObject() PdfObject {
 	}
 
 	return dict
-}
-
-// ColorTolerance is the smallest color component that is visible on a typical mid-range color laser printer
-// cpts have values in range 0.0-1.0
-const ColorTolerance = 0.5 / 255.0
-
-// visible returns true if any of color component `cpts` is visible on a typical mid-range color laser printer
-// cpts have values in range 0.0-1.0
-func visible(cpts ...float64) bool {
-	for _, x := range cpts {
-		if math.Abs(x) > ColorTolerance {
-			return true
-		}
-	}
-	return false
 }
