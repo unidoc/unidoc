@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
 
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/model/textencoding"
@@ -26,6 +27,7 @@ type CMap struct {
 	name       string
 	ctype      int
 	codespaces []codespace
+	codeSpan   int8
 }
 
 // codespace represents a single codespace range used in the CMap.
@@ -62,7 +64,7 @@ func (cmap *CMap) CharcodeBytesToUnicode(src []byte) string {
 			code |= uint64(b)
 
 			tgt, has := cmap.codeMap[code]
-			if has {
+			if has && cmap.codeSpan&int8(math.Pow(2.0, float64(j+1))) > 0 {
 				buf.WriteString(tgt)
 				break
 			} else if j == maxLen-1 || i+j == len(src)-1 {
@@ -90,6 +92,7 @@ func newCMap() *CMap {
 	cmap := &CMap{}
 	cmap.codespaces = []codespace{}
 	cmap.codeMap = map[uint64]string{}
+	cmap.codeSpan = 0
 	return cmap
 }
 
@@ -213,6 +216,7 @@ func (cmap *CMap) parseCodespaceRange() error {
 
 		cspace := codespace{low, high}
 		cmap.codespaces = append(cmap.codespaces, cspace)
+		cmap.codeSpan = cmap.codeSpan | int8(math.Pow(2.0, float64(len(hexHigh.b))))
 
 		common.Log.Trace("Codespace low: 0x%X, high: 0x%X", low, high)
 	}
