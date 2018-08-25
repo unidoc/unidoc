@@ -99,7 +99,7 @@ func NewPdfColorspaceFromPdfObject(obj PdfObject) (PdfColorspace, error) {
 		if container == nil {
 			csObject = csArray
 		}
-		if name, is := (*csArray)[0].(*PdfObjectName); is {
+		if name, is := TraceToDirectObject((*csArray)[0]).(*PdfObjectName); is {
 			if *name == "DeviceGray" && len(*csArray) == 1 {
 				cs := NewPdfColorspaceDeviceGray()
 				return cs, nil
