@@ -1808,6 +1808,26 @@ func TestCellBorder(t *testing.T) {
 	}
 }
 
+func TestDottedLine(t *testing.T) {
+	lineTop := NewDottedLine(50, 150, 150, 150)
+	lineLeft := NewDottedLine(50, 150, 50, 200)
+	lineBottom := NewDottedLine(50, 200, 150, 200)
+	lineRight := NewDottedLine(150, 150, 150, 200)
+
+	c := New()
+	c.Draw(lineTop)
+	c.Draw(lineLeft)
+	c.Draw(lineBottom)
+	c.Draw(lineRight)
+
+	//err := c.WriteToFile("/tmp/cell.pdf")
+	err := c.WriteToFile("./testdata/line_x.pdf")
+	if err != nil {
+		t.Errorf("Fail: %v\n", err)
+		return
+	}
+}
+
 func TestTableInSubchapter(t *testing.T) {
 	c := New()
 
