@@ -412,3 +412,74 @@ func (line BasicLine) Draw(gsName string) ([]byte, *pdf.PdfRectangle, error) {
 
 	return cc.Bytes(), bbox, nil
 }
+
+// DottedLine defines a line between point 1 (X1,Y1) and point 2 (X2,Y2). The line has a specified width, color and opacity.
+type DottedLine struct {
+	X1        float64
+	Y1        float64
+	X2        float64
+	Y2        float64
+	LineColor *pdf.PdfColorDeviceRGB
+	Opacity   float64 // Alpha value (0-1).
+	LineWidth float64
+	LineStyle LineStyle
+}
+
+// Draw draws the dotted line to PDF. Generates the content stream which can be used in page contents or appearance
+// stream of annotation. Returns the stream content, XForm bounding box (local), bounding box and an error if
+// one occurred.
+func (line DottedLine) Draw(gsName string) ([]byte, *pdf.PdfRectangle, error) {
+	w := line.LineWidth
+
+	distanceY := line.Y2 - line.Y1
+	distance := math.Sqrt(math.Pow(line.X2-line.X1, 2) + math.Pow(line.Y2-line.Y1, 2)) // Distance between two points.
+
+	// Checking if horizontal line or vertical line.
+	isHorizontal := true
+	if distanceY != 0 {
+		isHorizontal = false
+	}
+
+	var contents []byte
+
+	for i := 0.0; i <= distance; i += 2 {
+		drawline := BasicLine{
+			LineWidth: w,
+			Opacity:   1.0,
+			LineColor: line.LineColor,
+		}
+
+		if isHorizontal {
+			drawline.X1 = line.X1 + i
+			drawline.Y1 = line.Y1
+			drawline.X2 = line.X1 + i + 1
+			drawline.Y2 = line.Y2
+		} else {
+			drawline.X1 = line.X1
+			drawline.Y1 = line.Y1 - i
+			drawline.X2 = line.X1
+			drawline.Y2 = line.Y1 - (i - 1)
+		}
+
+		c, _, err := drawline.Draw("")
+		if err != nil {
+			return nil, nil, err
+		}
+		contents = append(contents, c...)
+	}
+
+	path := NewPath()
+	path = path.AppendPoint(NewPoint(line.X1, line.Y1))
+	path = path.AppendPoint(NewPoint(line.X2, line.Y2))
+
+	pathBbox := path.GetBoundingBox()
+
+	// Bounding box - global coordinate system.
+	bbox := &pdf.PdfRectangle{}
+	bbox.Llx = pathBbox.X
+	bbox.Lly = pathBbox.Y
+	bbox.Urx = pathBbox.X + pathBbox.Width
+	bbox.Ury = pathBbox.Y + pathBbox.Height
+
+	return contents, bbox, nil
+}
