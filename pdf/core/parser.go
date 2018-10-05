@@ -59,6 +59,11 @@ func (parser *PdfParser) PdfVersion() string {
 	return fmt.Sprintf("%0d.%0d", parser.majorVersion, parser.minorVersion)
 }
 
+// PdfVersionInt returns version of the PDF file.
+func (parser *PdfParser) PdfVersionInt() (int, int) {
+	return parser.majorVersion, parser.minorVersion
+}
+
 // GetCrypter returns the PdfCrypt instance which has information about the PDFs encryption.
 func (parser *PdfParser) GetCrypter() *PdfCrypt {
 	return parser.crypter

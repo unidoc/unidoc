@@ -71,6 +71,11 @@ func (this *PdfReader) PdfVersion() string {
 	return this.parser.PdfVersion()
 }
 
+// PdfVersionInt returns version of the PDF file.
+func (this *PdfReader) PdfVersionInt() (int, int) {
+	return this.parser.PdfVersionInt()
+}
+
 // IsEncrypted returns true if the PDF file is encrypted.
 func (this *PdfReader) IsEncrypted() (bool, error) {
 	return this.parser.IsEncrypted()
