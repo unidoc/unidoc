@@ -5,6 +5,11 @@
 
 package creator
 
+import (
+	"github.com/unidoc/unidoc/pdf/model"
+	"github.com/unidoc/unidoc/pdf/model/textencoding"
+)
+
 // PageSize represents the page size as a 2 element array representing the width and height in PDF document units (points).
 type PageSize [2]float64
 
@@ -53,4 +58,33 @@ func (p positioning) isRelative() bool {
 }
 func (p positioning) isAbsolute() bool {
 	return p == positionAbsolute
+}
+
+var (
+	// Default fonts used by all the components.
+	defaultFont     *model.PdfFont
+	defaultFontBold *model.PdfFont
+
+	// Default text encoder used by all the components.
+	defaultTextEncoder textencoding.TextEncoder
+)
+
+func init() {
+	// Initialize default text encoder.
+	defaultTextEncoder = textencoding.NewWinAnsiTextEncoder()
+
+	// Initialize default fonts.
+	var err error
+
+	defaultFont, err = model.NewStandard14Font(model.Helvetica)
+	if err != nil {
+		defaultFont = model.DefaultFont()
+	}
+	defaultFont.SetEncoder(defaultTextEncoder)
+
+	defaultFontBold, err = model.NewStandard14Font(model.HelveticaBold)
+	if err != nil {
+		defaultFont = model.DefaultFont()
+	}
+	defaultFontBold.SetEncoder(defaultTextEncoder)
 }

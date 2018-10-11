@@ -72,13 +72,8 @@ func NewParagraph(text string) *Paragraph {
 	p := &Paragraph{}
 	p.text = text
 
-	font, encoder, err := model.NewStandard14FontWithEncoding("Helvetica", model.GetAlphabet(text))
-	if err != nil {
-		common.Log.Debug("ERROR: NewStandard14FontWithEncoding failed err=%v. Falling back.", err)
-		p.textFont = model.DefaultFont()
-	}
-	p.textFont = font
-	p.SetEncoder(encoder)
+	p.textFont = defaultFont
+	p.SetEncoder(defaultTextEncoder)
 
 	p.fontSize = 10
 	p.lineHeight = 1.0

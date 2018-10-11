@@ -7,7 +7,6 @@ package creator
 
 import (
 	"github.com/unidoc/unidoc/pdf/model/fonts"
-	"github.com/unidoc/unidoc/pdf/model/textencoding"
 )
 
 // TextStyle is a collection of properties that can be assigned to a chunk of text.
@@ -26,12 +25,9 @@ type TextStyle struct {
 // of text. Uses default parameters: Helvetica, WinAnsiEncoding and wrap
 // enabled with a wrap width of 100 points.
 func NewTextStyle() TextStyle {
-	font := fonts.NewFontHelvetica()
-	font.SetEncoder(textencoding.NewWinAnsiTextEncoder())
-
 	return TextStyle{
 		Color:    ColorRGBFrom8bit(0, 0, 0),
-		Font:     font,
+		Font:     defaultFont,
 		FontSize: 10,
 	}
 }
