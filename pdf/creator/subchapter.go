@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/unidoc/unidoc/common"
-	"github.com/unidoc/unidoc/pdf/model"
 )
 
 // Subchapter simply represents a sub chapter pertaining to a specific Chapter.  It can contain
@@ -57,8 +56,7 @@ func (c *Creator) NewSubchapter(ch *Chapter, title string) *Subchapter {
 	p := NewParagraph(heading)
 
 	p.SetFontSize(14)
-	helvetica := model.NewStandard14FontMustCompile(model.Helvetica)
-	p.SetFont(helvetica) // bold?
+	p.SetFont(defaultFont) // bold?
 
 	subchap.showNumbering = true
 	subchap.includeInTOC = true

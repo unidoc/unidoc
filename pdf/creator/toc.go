@@ -5,8 +5,6 @@
 
 package creator
 
-import "github.com/unidoc/unidoc/pdf/model/fonts"
-
 // TOC represents a table of contents component.
 // It consists of a paragraph heading and a collection of
 // table of contents lines.
@@ -48,7 +46,7 @@ type TOC struct {
 // NewTOC creates a new table of contents.
 func NewTOC(title string) *TOC {
 	headingStyle := NewTextStyle()
-	headingStyle.Font = fonts.NewFontHelveticaBold()
+	headingStyle.Font = defaultFontBold
 	headingStyle.FontSize = 14
 
 	heading := NewStyledParagraph(title, headingStyle)

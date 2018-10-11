@@ -11,7 +11,6 @@ import (
 	"strconv"
 
 	"github.com/unidoc/unidoc/common"
-	"github.com/unidoc/unidoc/pdf/model"
 )
 
 // Chapter is used to arrange multiple drawables (paragraphs, images, etc) into a single section.
@@ -58,8 +57,7 @@ func (c *Creator) NewChapter(title string) *Chapter {
 	heading := fmt.Sprintf("%d. %s", c.chapters, title)
 	p := NewParagraph(heading)
 	p.SetFontSize(16)
-	helvetica := model.NewStandard14FontMustCompile(model.Helvetica)
-	p.SetFont(helvetica) // bold?
+	p.SetFont(defaultFont) // bold?
 
 	chap.heading = p
 	chap.contents = []Drawable{}

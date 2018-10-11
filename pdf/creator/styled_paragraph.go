@@ -91,7 +91,7 @@ func NewStyledParagraph(text string, style TextStyle) *StyledParagraph {
 		positioning:  positionRelative,
 	}
 
-	p.SetEncoder(textencoding.NewWinAnsiTextEncoder())
+	p.SetEncoder(defaultTextEncoder)
 	return p
 }
 
