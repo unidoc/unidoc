@@ -11,6 +11,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 
@@ -23,6 +24,16 @@ type PdfRectangle struct {
 	Lly float64
 	Urx float64 // Upper right corner (ur).
 	Ury float64
+}
+
+// Width returns the width of `r`.
+func (r PdfRectangle) Width() float64 {
+	return math.Abs(r.Urx - r.Llx)
+}
+
+// Height returns the height of `r`.
+func (r PdfRectangle) Height() float64 {
+	return math.Abs(r.Ury - r.Lly)
 }
 
 // NewPdfRectangle creates a PDF rectangle object based on an input array of 4 integers.
