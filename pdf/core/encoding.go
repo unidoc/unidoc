@@ -1047,10 +1047,11 @@ func (this *DCTEncoder) EncodeBytes(data []byte) ([]byte, error) {
 	// Draw the data on the image..
 	x := 0
 	y := 0
-	bytesPerColor := this.ColorComponents * this.BitsPerComponent / 8
-	if bytesPerColor < 1 {
-		bytesPerColor = 1
+	// When component has less than one byte
+	if this.BitsPerComponent < 8 {
+		this.BitsPerComponent = 8
 	}
+	bytesPerColor := this.ColorComponents * this.BitsPerComponent / 8
 	for i := 0; i+bytesPerColor-1 < len(data); i += bytesPerColor {
 		var c gocolor.Color
 		if this.ColorComponents == 1 {

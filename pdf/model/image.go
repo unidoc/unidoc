@@ -234,7 +234,7 @@ type ImageHandler interface {
 // DefaultImageHandler is the default implementation of the ImageHandler using the standard go library.
 type DefaultImageHandler struct{}
 
-// Create a unidoc RGB Image from a golang Image.
+// NewImageFromGoImage creates a new RGB Image from goimg for use with DeviceRGB colorspace.
 func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, error) {
 	// Speed up jpeg encoding by converting to RGBA first.
 	// Will not be required once the golang image/jpeg package is optimized.
@@ -271,7 +271,7 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 	return &imag, nil
 }
 
-// Create a unidoc Gray Image from a golang Image.
+// NewGrayImageFromGoImage creates a new grayscale Image from goimg for use with DeviceGray colorspace.
 func (ih DefaultImageHandler) NewGrayImageFromGoImage(goimg goimage.Image) (*Image, error) {
 	b := goimg.Bounds()
 	m := goimage.NewGray(goimage.Rect(0, 0, b.Dx(), b.Dy()))
