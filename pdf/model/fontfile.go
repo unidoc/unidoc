@@ -68,7 +68,7 @@ func newFontFileFromPdfObject(obj core.PdfObject) (*fontFile, error) {
 	if !ok {
 		fontfile.subtype = subtype
 		if subtype == "Type1C" {
-			// XXX: TODO Add Type1C support
+			// TODO: Add Type1C support
 			common.Log.Debug("Type1C fonts are currently not supported")
 			return nil, ErrType1CFontNotSupported
 		}
@@ -85,7 +85,7 @@ func newFontFileFromPdfObject(obj core.PdfObject) (*fontFile, error) {
 	}
 
 	segment1 := data[:length1]
-	segment2 := []byte{}
+	var segment2 []byte
 	if length2 > 0 {
 		segment2 = data[length1 : length1+length2]
 	}
@@ -131,7 +131,7 @@ func (fontfile *fontFile) parseAsciiPart(data []byte) error {
 	// or
 	//     %!FontType1-1.0
 	if len(data) < 2 || string(data[:2]) != "%!" {
-		return errors.New("Invalid start of ASCII segment")
+		return errors.New("invalid start of ASCII segment")
 	}
 
 	keySection, encodingSection, err := getAsciiSections(data)
@@ -153,7 +153,7 @@ func (fontfile *fontFile) parseAsciiPart(data []byte) error {
 		}
 		encoder, err := textencoding.NewCustomSimpleTextEncoder(encodings, nil)
 		if err != nil {
-			// XXX: Logging an error because we need to fix all these misses.
+			// TODO: Logging an error because we need to fix all these misses.
 			common.Log.Error("UNKNOWN GLYPH: err=%v", err)
 			return nil
 		}
@@ -220,9 +220,9 @@ func getKeyValues(data string) map[string]string {
 }
 
 // getEncodings returns the encodings encoded in `data`.
-func getEncodings(data string) (map[uint16]string, error) {
+func getEncodings(data string) (map[textencoding.CharCode]textencoding.GlyphName, error) {
 	lines := strings.Split(data, "\n")
-	keyValues := map[uint16]string{}
+	keyValues := make(map[textencoding.CharCode]textencoding.GlyphName)
 	for _, line := range lines {
 		matches := reEncoding.FindStringSubmatch(line)
 		if matches == nil {
@@ -234,7 +234,7 @@ func getEncodings(data string) (map[uint16]string, error) {
 			common.Log.Debug("ERROR: Bad encoding line. %q", line)
 			return nil, core.ErrTypeError
 		}
-		keyValues[uint16(code)] = glyph
+		keyValues[textencoding.CharCode(code)] = textencoding.GlyphName(glyph)
 	}
 	common.Log.Trace("getEncodings: keyValues=%#v", keyValues)
 	return keyValues, nil
@@ -271,12 +271,4 @@ func isBinary(data []byte) bool {
 		}
 	}
 	return false
-}
-
-// truncate returns the first `n` characters f string `s`.
-func truncate(s string, n int) string {
-	if len(s) < n {
-		return s
-	}
-	return s[:n]
 }

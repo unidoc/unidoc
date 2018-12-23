@@ -317,7 +317,7 @@ func (cmap *CMap) parseCodespaceRange() error {
 				if op.Operand == endcodespacerange {
 					return nil
 				}
-				return errors.New("Unexpected operand")
+				return errors.New("unexpected operand")
 			}
 		}
 
@@ -330,11 +330,11 @@ func (cmap *CMap) parseCodespaceRange() error {
 		}
 		hexHigh, ok := o.(cmapHexString)
 		if !ok {
-			return errors.New("Non-hex high")
+			return errors.New("non-hex high")
 		}
 
 		if len(hexLow.b) != len(hexHigh.b) {
-			return errors.New("Unequal number of bytes in range")
+			return errors.New("unequal number of bytes in range")
 		}
 
 		low := hexToCharCode(hexLow)
@@ -376,11 +376,11 @@ func (cmap *CMap) parseBfchar() error {
 			if v.Operand == endbfchar {
 				return nil
 			}
-			return errors.New("Unexpected operand")
+			return errors.New("unexpected operand")
 		case cmapHexString:
 			code = hexToCharCode(v)
 		default:
-			return errors.New("Unexpected type")
+			return errors.New("unexpected type")
 		}
 
 		// Target code.
@@ -391,8 +391,7 @@ func (cmap *CMap) parseBfchar() error {
 			}
 			return err
 		}
-		target := ""
-
+		var target rune
 		switch v := o.(type) {
 		case cmapOperand:
 			if v.Operand == endbfchar {
@@ -401,10 +400,10 @@ func (cmap *CMap) parseBfchar() error {
 			common.Log.Debug("ERROR: Unexpected operand. %#v", v)
 			return ErrBadCMap
 		case cmapHexString:
-			target = hexToString(v)
+			target = hexToRune(v)
 		case cmapName:
 			common.Log.Debug("ERROR: Unexpected name. %#v", v)
-			target = MissingCodeString
+			target = MissingCodeRune
 		default:
 			common.Log.Debug("ERROR: Unexpected type. %#v", o)
 			return ErrBadCMap
@@ -437,11 +436,11 @@ func (cmap *CMap) parseBfrange() error {
 			if v.Operand == endbfrange {
 				return nil
 			}
-			return errors.New("Unexpected operand")
+			return errors.New("unexpected operand")
 		case cmapHexString:
 			srcCodeFrom = hexToCharCode(v)
 		default:
-			return errors.New("Unexpected type")
+			return errors.New("unexpected type")
 		}
 
 		// Src code to.
@@ -482,19 +481,18 @@ func (cmap *CMap) parseBfrange() error {
 				o := v.Array[code-srcCodeFrom]
 				hexs, ok := o.(cmapHexString)
 				if !ok {
-					return errors.New("Non-hex string in array")
+					return errors.New("non-hex string in array")
 				}
-				s := hexToString(hexs)
-				cmap.codeToUnicode[code] = s
+				r := hexToRune(hexs)
+				cmap.codeToUnicode[code] = r
 			}
 
 		case cmapHexString:
 			// <codeFrom> <codeTo> <dst>, maps [from,to] to [dst,dst+to-from].
-			target := hexToString(v)
-			runes := []rune(target)
+			r := hexToRune(v)
 			for code := srcCodeFrom; code <= srcCodeTo; code++ {
-				cmap.codeToUnicode[code] = string(runes)
-				runes[len(runes)-1]++
+				cmap.codeToUnicode[code] = r
+				r++
 			}
 		default:
 			common.Log.Debug("ERROR: Unexpected type %T", o)

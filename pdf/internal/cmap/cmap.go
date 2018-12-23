@@ -54,11 +54,11 @@ type CMap struct {
 	codespaces []Codespace
 
 	// For ToUnicode (ctype 2) cmaps.
-	codeToUnicode map[CharCode]string
+	codeToUnicode map[CharCode]rune
 }
 
 // NewToUnicodeCMap returns an identity CMap with codeToUnicode matching the `codeToUnicode` arg.
-func NewToUnicodeCMap(codeToUnicode map[CharCode]string) *CMap {
+func NewToUnicodeCMap(codeToUnicode map[CharCode]rune) *CMap {
 	return &CMap{
 		name:  "Adobe-Identity-UCS",
 		ctype: 2,
@@ -68,7 +68,7 @@ func NewToUnicodeCMap(codeToUnicode map[CharCode]string) *CMap {
 			Ordering:   "UCS",
 			Supplement: 0,
 		},
-		codespaces:    []Codespace{Codespace{Low: 0, High: 0xffff}},
+		codespaces:    []Codespace{{Low: 0, High: 0xffff}},
 		codeToUnicode: codeToUnicode,
 	}
 }
@@ -102,11 +102,10 @@ func newCMap(isSimple bool) *CMap {
 	if isSimple {
 		nbits = 8
 	}
-	cmap := &CMap{
+	return &CMap{
 		nbits:         nbits,
-		codeToUnicode: map[CharCode]string{},
+		codeToUnicode: make(map[CharCode]rune),
 	}
-	return cmap
 }
 
 // String returns a human readable description of `info`.
@@ -153,9 +152,6 @@ func (cmap *CMap) Type() int {
 // MissingCodeRune replaces runes that can't be decoded. '\ufffd' = �. Was '?'.
 const MissingCodeRune = textencoding.MissingCodeRune
 
-// MissingCodeString replaces strings that can't be decoded.
-var MissingCodeString = string(MissingCodeRune)
-
 // CharcodeBytesToUnicode converts a byte array of charcodes to a unicode string representation.
 // It also returns a bool flag to tell if the conversion was successful.
 // NOTE: This only works for ToUnicode cmaps.
@@ -167,17 +163,19 @@ func (cmap *CMap) CharcodeBytesToUnicode(data []byte) (string, int) {
 		return "", 0
 	}
 
-	parts := []string{}
-	missing := []CharCode{}
+	var (
+		parts   []rune
+		missing []CharCode
+	)
 	for _, code := range charcodes {
 		s, ok := cmap.codeToUnicode[code]
 		if !ok {
 			missing = append(missing, code)
-			s = MissingCodeString
+			s = MissingCodeRune
 		}
 		parts = append(parts, s)
 	}
-	unicode := strings.Join(parts, "")
+	unicode := string(parts)
 	if len(missing) > 0 {
 		common.Log.Debug("ERROR: CharcodeBytesToUnicode. Not in map.\n"+
 			"\tdata=[% 02x]=%#q\n"+
@@ -191,13 +189,13 @@ func (cmap *CMap) CharcodeBytesToUnicode(data []byte) (string, int) {
 }
 
 // CharcodeToUnicode converts a single character code `code` to a unicode string.
-// If `code` is not in the unicode map, "�" is returned.
+// If `code` is not in the unicode map, '�' is returned.
 // NOTE: CharcodeBytesToUnicode is typically more efficient.
-func (cmap *CMap) CharcodeToUnicode(code CharCode) (string, bool) {
+func (cmap *CMap) CharcodeToUnicode(code CharCode) (rune, bool) {
 	if s, ok := cmap.codeToUnicode[code]; ok {
 		return s, true
 	}
-	return MissingCodeString, false
+	return MissingCodeRune, false
 }
 
 // bytesToCharcodes attempts to convert the entire byte array `data` to a list of character codes
@@ -207,7 +205,7 @@ func (cmap *CMap) CharcodeToUnicode(code CharCode) (string, bool) {
 //      matched?
 // NOTE: A partial list of character codes will be returned if a complete match is not possible.
 func (cmap *CMap) bytesToCharcodes(data []byte) ([]CharCode, bool) {
-	charcodes := []CharCode{}
+	var charcodes []CharCode
 	if cmap.nbits == 8 {
 		for _, b := range data {
 			charcodes = append(charcodes, CharCode(b))
@@ -320,14 +318,14 @@ func (cmap *CMap) toBfData() string {
 	}
 
 	// codes is a sorted list of the codeToUnicode keys.
-	codes := []CharCode{}
+	var codes []CharCode
 	for code := range cmap.codeToUnicode {
 		codes = append(codes, code)
 	}
 	sort.Slice(codes, func(i, j int) bool { return codes[i] < codes[j] })
 
 	// charRanges is a list of the contiguous character code ranges in `codes`.
-	charRanges := []charRange{}
+	var charRanges []charRange
 	c0, c1 := codes[0], codes[0]+1
 	for _, c := range codes[1:] {
 		if c != c1 {
@@ -341,8 +339,8 @@ func (cmap *CMap) toBfData() string {
 	}
 
 	// fbChars is a list of single character ranges. fbRanges is a list of multiple character ranges.
-	fbChars := []CharCode{}
-	fbRanges := []fbRange{}
+	var fbChars []CharCode
+	var fbRanges []fbRange
 	for _, cr := range charRanges {
 		if cr.code0+1 == cr.code1 {
 			fbChars = append(fbChars, cr.code0)
@@ -350,14 +348,14 @@ func (cmap *CMap) toBfData() string {
 			fbRanges = append(fbRanges, fbRange{
 				code0: cr.code0,
 				code1: cr.code1,
-				r0:    []rune(cmap.codeToUnicode[cr.code0])[0],
+				r0:    cmap.codeToUnicode[cr.code0],
 			})
 		}
 	}
 	common.Log.Trace("charRanges=%d fbChars=%d fbRanges=%d", len(charRanges), len(fbChars),
 		len(fbRanges))
 
-	lines := []string{}
+	var lines []string
 	if len(fbChars) > 0 {
 		numRanges := (len(fbChars) + maxBfEntries - 1) / maxBfEntries
 		for i := 0; i < numRanges; i++ {
@@ -365,8 +363,7 @@ func (cmap *CMap) toBfData() string {
 			lines = append(lines, fmt.Sprintf("%d beginbfchar", n))
 			for j := 0; j < n; j++ {
 				code := fbChars[i*maxBfEntries+j]
-				s := cmap.codeToUnicode[code]
-				r := []rune(s)[0]
+				r := cmap.codeToUnicode[code]
 				lines = append(lines, fmt.Sprintf("<%04x> <%04x>", code, r))
 			}
 			lines = append(lines, "endbfchar")

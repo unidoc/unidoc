@@ -12,6 +12,7 @@ import (
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/contentstream"
 	"github.com/unidoc/unidoc/pdf/core"
+	"github.com/unidoc/unidoc/pdf/internal/textencoding"
 	"github.com/unidoc/unidoc/pdf/model"
 )
 
@@ -33,7 +34,7 @@ type AppearanceStyle struct {
 	// How much of Rect height to fill when autosizing text.
 	AutoFontSizeFraction float64
 	// Glyph used for check mark in checkboxes (for ZapfDingbats font).
-	CheckmarkGlyph string
+	CheckmarkGlyph textencoding.GlyphName
 
 	BorderSize  float64
 	BorderColor model.PdfColor
@@ -730,6 +731,8 @@ func genFieldTextCombAppearance(wa *model.PdfAnnotationWidget, ftxt *model.PdfFi
 // genFieldCheckboxAppearance generates an appearance dictionary for a widget annotation `wa` referenced by
 // a button field `fbtn` with form resources `dr` (DR).
 func genFieldCheckboxAppearance(wa *model.PdfAnnotationWidget, fbtn *model.PdfFieldButton, dr *model.PdfPageResources, style AppearanceStyle) (*core.PdfObjectDictionary, error) {
+	// TODO(dennwc): unused parameters
+
 	// Get bounding Rect.
 	array, ok := core.GetArray(wa.Rect)
 	if !ok {
@@ -1111,7 +1114,9 @@ func (style *AppearanceStyle) applyAppearanceCharacteristics(mkDict *core.PdfObj
 	if CA, has := core.GetString(mkDict.Get("CA")); has && font != nil {
 		encoded := CA.Bytes()
 		if len(encoded) == 1 {
-			if checkglyph, has := font.Encoder().CharcodeToGlyph(uint16(encoded[0])); has {
+			// TODO: this may be a multi-byte encoding
+			charcode := textencoding.CharCode(encoded[0])
+			if checkglyph, has := font.Encoder().CharcodeToGlyph(charcode); has {
 				style.CheckmarkGlyph = checkglyph
 			}
 		}

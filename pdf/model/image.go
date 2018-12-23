@@ -66,7 +66,7 @@ func (img *Image) GetSamples() []uint32 {
 // SetSamples convert samples to byte-data and sets for the image.
 func (img *Image) SetSamples(samples []uint32) {
 	resampled := sampling.ResampleUint32(samples, int(img.BitsPerComponent), 8)
-	data := []byte{}
+	var data []byte
 	for _, val := range resampled {
 		data = append(data, byte(val))
 	}
@@ -114,7 +114,7 @@ func (img *Image) Resample(targetBitsPerComponent int64) {
 	}
 
 	// Write out row by row...
-	data := []byte{}
+	var data []byte
 	for i := int64(0); i < img.Height; i++ {
 		ind1 := i * img.Width * int64(img.ColorComponents)
 		ind2 := (i+1)*img.Width*int64(img.ColorComponents) - 1
@@ -150,9 +150,9 @@ func (img *Image) ToGoImage() (goimage.Image, error) {
 	} else if img.ColorComponents == 4 {
 		imgout = goimage.NewCMYK(bounds)
 	} else {
-		// XXX? Force RGB convert?
+		// TODO: Force RGB convert?
 		common.Log.Debug("Unsupported number of colors components per sample: %d", img.ColorComponents)
-		return nil, errors.New("Unsupported colors")
+		return nil, errors.New("unsupported colors")
 	}
 
 	// Draw the data on the image..
@@ -224,7 +224,7 @@ type ImageHandler interface {
 	// Read any image type and load into a new Image object.
 	Read(r io.Reader) (*Image, error)
 
-	// Load a unidoc Image from a standard Go image structure.
+	// NewImageFromGoImage load a unidoc Image from a standard Go image structure.
 	NewImageFromGoImage(goimg goimage.Image) (*Image, error)
 
 	// Load a unidoc Gray Image from a standard Go image structure.
@@ -245,10 +245,10 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 	m := goimage.NewRGBA(goimage.Rect(0, 0, b.Dx(), b.Dy()))
 	draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
 
-	alphaData := []byte{}
+	var alphaData []byte
 	hasAlpha := false
 
-	data := []byte{}
+	var data []byte
 	for i := 0; i < len(m.Pix); i += 4 {
 		data = append(data, m.Pix[i], m.Pix[i+1], m.Pix[i+2])
 		alpha := m.Pix[i+3]
@@ -315,7 +315,7 @@ func (ih DefaultImageHandler) Compress(input *Image, quality int64) (*Image, err
 	return input, nil
 }
 
-// ImageHandler is used for handling images.
+// ImageHandling is used for handling images.
 var ImageHandling ImageHandler = DefaultImageHandler{}
 
 // SetImageHandler sets the image handler used by the package.

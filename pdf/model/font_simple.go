@@ -15,6 +15,9 @@ import (
 	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
 
+// pdfFontSimple implements pdfFont
+var _ pdfFont = (*pdfFontSimple)(nil)
+
 // pdfFontSimple describes a Simple Font
 //
 // 9.6 Simple Fonts (page 254)
@@ -36,8 +39,8 @@ type pdfFontSimple struct {
 	container *core.PdfIndirectObject
 
 	// These fields are specific to simple PDF fonts.
-	firstChar  int
-	lastChar   int
+	firstChar  textencoding.CharCode
+	lastChar   textencoding.CharCode
 	charWidths []float64
 	encoder    textencoding.TextEncoder
 
@@ -49,7 +52,7 @@ type pdfFontSimple struct {
 	Encoding  core.PdfObject
 
 	// Standard 14 fonts metrics
-	fontMetrics map[string]fonts.CharMetrics
+	fontMetrics map[textencoding.GlyphName]fonts.CharMetrics
 }
 
 // pdfCIDFontType0FromSkeleton returns a pdfFontSimple with its common fields initalized.
@@ -64,6 +67,10 @@ func (font *pdfFontSimple) baseFields() *fontCommon {
 	return &font.fontCommon
 }
 
+func (font *pdfFontSimple) getFontDescriptor() *PdfFontDescriptor {
+	return font.fontDescriptor
+}
+
 // Encoder returns the font's text encoder.
 func (font *pdfFontSimple) Encoder() textencoding.TextEncoder {
 	return font.encoder
@@ -76,7 +83,7 @@ func (font *pdfFontSimple) SetEncoder(encoder textencoding.TextEncoder) {
 
 // GetGlyphCharMetrics returns the character metrics for the specified glyph.  A bool flag is
 // returned to indicate whether or not the entry was found in the glyph to charcode mapping.
-func (font pdfFontSimple) GetGlyphCharMetrics(glyph string) (fonts.CharMetrics, bool) {
+func (font pdfFontSimple) GetGlyphCharMetrics(glyph textencoding.GlyphName) (fonts.CharMetrics, bool) {
 	if font.fontMetrics != nil {
 		metrics, ok := font.fontMetrics[glyph]
 		return metrics, ok
@@ -90,17 +97,17 @@ func (font pdfFontSimple) GetGlyphCharMetrics(glyph string) (fonts.CharMetrics, 
 	}
 	metrics.GlyphName = glyph
 
-	if int(code) < font.firstChar {
+	if code < font.firstChar {
 		common.Log.Debug("Code lower than firstchar (%d < %d)", code, font.firstChar)
 		return metrics, false
 	}
 
-	if int(code) > font.lastChar {
+	if code > font.lastChar {
 		common.Log.Debug("Code higher than lastchar (%d < %d)", code, font.lastChar)
 		return metrics, false
 	}
 
-	index := int(code) - font.firstChar
+	index := int(code - font.firstChar)
 	if index >= len(font.charWidths) {
 		common.Log.Debug("Code outside of widths range")
 		return metrics, false
@@ -135,7 +142,7 @@ func newSimpleFontFromPdfObject(d *core.PdfObjectDictionary, base *fontCommon, s
 			common.Log.Debug("ERROR: Invalid FirstChar type (%T)", obj)
 			return nil, core.ErrTypeError
 		}
-		font.firstChar = int(intVal)
+		font.firstChar = textencoding.CharCode(intVal)
 
 		obj = d.Get("LastChar")
 		if obj == nil {
@@ -147,7 +154,7 @@ func newSimpleFontFromPdfObject(d *core.PdfObjectDictionary, base *fontCommon, s
 			common.Log.Debug("ERROR: Invalid LastChar type (%T)", obj)
 			return nil, core.ErrTypeError
 		}
-		font.lastChar = int(intVal)
+		font.lastChar = textencoding.CharCode(intVal)
 
 		font.charWidths = []float64{}
 		obj = d.Get("Widths")
@@ -166,7 +173,7 @@ func newSimpleFontFromPdfObject(d *core.PdfObjectDictionary, base *fontCommon, s
 				return nil, err
 			}
 
-			if len(widths) != (font.lastChar - font.firstChar + 1) {
+			if len(widths) != int(font.lastChar-font.firstChar+1) {
 				common.Log.Debug("ERROR: Invalid widths length != %d (%d)",
 					font.lastChar-font.firstChar+1, len(widths))
 				return nil, core.ErrRangeError
@@ -182,10 +189,12 @@ func newSimpleFontFromPdfObject(d *core.PdfObjectDictionary, base *fontCommon, s
 // addEncoding adds the encoding to the font.
 // The order of precedence is important.
 func (font *pdfFontSimple) addEncoding() error {
-	var baseEncoder string
-	var differences map[byte]string
-	var err error
-	var encoder *textencoding.SimpleEncoder
+	var (
+		baseEncoder string
+		differences map[textencoding.CharCode]textencoding.GlyphName
+		err         error
+		encoder     *textencoding.SimpleEncoder
+	)
 
 	if font.Encoding != nil {
 		baseEncoder, differences, err = getFontEncoding(font.Encoding)
@@ -247,7 +256,7 @@ func (font *pdfFontSimple) addEncoding() error {
 // Except for Type 3 fonts, every font program shall have a built-in encoding. Under certain
 // circumstances, a PDF font dictionary may change the encoding used with the font program to match
 // the requirements of the conforming writer generating the text being shown.
-func getFontEncoding(obj core.PdfObject) (baseName string, differences map[byte]string, err error) {
+func getFontEncoding(obj core.PdfObject) (baseName string, differences map[textencoding.CharCode]textencoding.GlyphName, err error) {
 	baseName = "StandardEncoding"
 
 	if obj == nil {
@@ -313,8 +322,8 @@ func (font *pdfFontSimple) ToPdfObject() core.PdfObject {
 // styling functions.
 // Uses a WinAnsiTextEncoder and loads only character codes 32-255.
 func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
-	const minCode = 32
-	const maxCode = 255
+	const minCode = textencoding.CharCode(32)
+	const maxCode = textencoding.CharCode(255)
 
 	ttf, err := fonts.TtfParse(filePath)
 	if err != nil {
@@ -336,8 +345,8 @@ func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
 	truefont.lastChar = maxCode
 
 	truefont.basefont = ttf.PostScriptName
-	truefont.FirstChar = core.MakeInteger(minCode)
-	truefont.LastChar = core.MakeInteger(maxCode)
+	truefont.FirstChar = core.MakeInteger(int64(minCode))
+	truefont.LastChar = core.MakeInteger(int64(maxCode))
 
 	k := 1000.0 / float64(ttf.UnitsPerEm)
 	if len(ttf.Widths) <= 0 {
@@ -348,14 +357,14 @@ func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
 
 	vals := make([]float64, 0, maxCode-minCode+1)
 	for code := minCode; code <= maxCode; code++ {
-		r, found := truefont.Encoder().CharcodeToRune(uint16(code))
+		r, found := truefont.Encoder().CharcodeToRune(code)
 		if !found {
 			common.Log.Debug("Rune not found (code: %d)", code)
 			vals = append(vals, missingWidth)
 			continue
 		}
 
-		pos, ok := ttf.Chars[uint16(r)]
+		pos, ok := ttf.Chars[r]
 		if !ok {
 			common.Log.Debug("Rune not in TTF Chars")
 			vals = append(vals, missingWidth)
@@ -428,138 +437,13 @@ func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
 	return font, nil
 }
 
-// Standard14Font is to be used only to define the standard 14 font names that follow.
-// This guarantees that calls to NewStandard14FontMustCompile will succeed.
-type Standard14Font string
-
-const (
-	Courier              Standard14Font = "Courier"
-	CourierBold          Standard14Font = "Courier-Bold"
-	CourierBoldOblique   Standard14Font = "Courier-BoldOblique"
-	CourierOblique       Standard14Font = "Courier-Oblique"
-	Helvetica            Standard14Font = "Helvetica"
-	HelveticaBold        Standard14Font = "Helvetica-Bold"
-	HelveticaBoldOblique Standard14Font = "Helvetica-BoldOblique"
-	HelveticaOblique     Standard14Font = "Helvetica-Oblique"
-	TimesRoman           Standard14Font = "Times-Roman"
-	TimesBold            Standard14Font = "Times-Bold"
-	TimesBoldItalic      Standard14Font = "Times-BoldItalic"
-	TimesItalic          Standard14Font = "Times-Italic"
-	Symbol               Standard14Font = "Symbol"
-	ZapfDingbats         Standard14Font = "ZapfDingbats"
-)
-
-var standard14Fonts = map[Standard14Font]pdfFontSimple{
-	Courier: pdfFontSimple{
+func stdFontToSimpleFont(f fonts.StdFont) pdfFontSimple {
+	return pdfFontSimple{
 		fontCommon: fontCommon{
 			subtype:  "Type1",
-			basefont: "Courier",
+			basefont: f.Name(),
 		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierCharMetrics,
-	},
-	CourierBold: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Courier-Bold",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierBoldCharMetrics,
-	},
-	CourierBoldOblique: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Courier-BoldOblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierBoldObliqueCharMetrics,
-	},
-	CourierOblique: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Courier-Oblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierObliqueCharMetrics,
-	},
-	Helvetica: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaCharMetrics,
-	},
-	HelveticaBold: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica-Bold",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaBoldCharMetrics,
-	},
-	HelveticaBoldOblique: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica-BoldOblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaBoldObliqueCharMetrics,
-	},
-	HelveticaOblique: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica-Oblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaObliqueCharMetrics,
-	},
-	TimesRoman: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-Roman",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesRomanCharMetrics,
-	},
-	TimesBold: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-Bold",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesBoldCharMetrics,
-	},
-	TimesBoldItalic: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-BoldItalic",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesBoldItalicCharMetrics,
-	},
-	TimesItalic: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-Italic",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesItalicCharMetrics,
-	},
-	Symbol: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Symbol",
-		},
-		encoder:     textencoding.NewSymbolEncoder(),
-		fontMetrics: fonts.SymbolCharMetrics,
-	},
-	ZapfDingbats: pdfFontSimple{
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "ZapfDingbats",
-		},
-		encoder:     textencoding.NewZapfDingbatsEncoder(),
-		fontMetrics: fonts.ZapfDingbatsCharMetrics,
-	},
+		encoder:     f.Encoder(),
+		fontMetrics: f.GetMetricsTable(),
+	}
 }

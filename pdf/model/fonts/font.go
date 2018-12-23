@@ -14,14 +14,13 @@ import (
 // mapped to and from glyphs.  Each glyph has metrics.
 type Font interface {
 	Encoder() textencoding.TextEncoder
-	SetEncoder(encoder textencoding.TextEncoder)
-	GetGlyphCharMetrics(glyph string) (CharMetrics, bool)
+	GetGlyphCharMetrics(glyph textencoding.GlyphName) (CharMetrics, bool)
 	ToPdfObject() core.PdfObject
 }
 
 // CharMetrics represents width and height metrics of a glyph.
 type CharMetrics struct {
-	GlyphName string
+	GlyphName textencoding.GlyphName
 	Wx        float64
 	Wy        float64
 }

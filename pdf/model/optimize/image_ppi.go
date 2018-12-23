@@ -33,7 +33,8 @@ func scaleImage(stream *core.PdfObjectStream, scale float64) error {
 	if err != nil {
 		return err
 	}
-	goimg, err := i.ToGoImage()
+	rgbImg, err := xImg.ColorSpace.ImageToRGB(*i)
+	goimg, err := rgbImg.ToGoImage()
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ func scaleImage(stream *core.PdfObjectStream, scale float64) error {
 	case "DeviceGray":
 		newImage = image.NewGray(rect)
 	default:
-		return fmt.Errorf("Optimization is not supported for color space %s", xImg.ColorSpace.String())
+		return fmt.Errorf("optimization is not supported for color space %s", xImg.ColorSpace.String())
 	}
 	draw.CatmullRom.Scale(newImage, newImage.Bounds(), goimg, goimg.Bounds(), draw.Over, &draw.Options{})
 	switch xImg.ColorSpace.String() {
