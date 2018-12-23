@@ -169,9 +169,12 @@ func (img *Image) ToGoImage() (goimage.Image, error) {
 			if img.BitsPerComponent == 16 {
 				val := uint16(samples[i])<<8 | uint16(samples[i+1])
 				c = gocolor.Gray16{val}
-			} else {
-				val := uint8(samples[i] & 0xff)
+			} else if img.BitsPerComponent > 0 && img.BitsPerComponent < 16 {
+				val := uint8(float64(samples[i]) / float64((uint(1)<<uint(img.BitsPerComponent))-1) * 255)
 				c = gocolor.Gray{val}
+			} else {
+				common.Log.Debug("Unsupported number of bits per components: %d", img.BitsPerComponent)
+				return nil, errors.New("Unsupported bits per components")
 			}
 		} else if img.ColorComponents == 3 {
 			if img.BitsPerComponent == 16 {
