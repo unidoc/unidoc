@@ -33,8 +33,7 @@ func scaleImage(stream *core.PdfObjectStream, scale float64) error {
 	if err != nil {
 		return err
 	}
-	rgbImg, err := xImg.ColorSpace.ImageToRGB(*i)
-	goimg, err := rgbImg.ToGoImage()
+	goimg, err := i.ToGoImage()
 	if err != nil {
 		return err
 	}
