@@ -97,7 +97,7 @@ func NewPdfColorspaceFromPdfObject(obj PdfObject) (PdfColorspace, error) {
 			return cs, nil
 		} else {
 			common.Log.Error("Unknown colorspace %s", *csName)
-			return nil, errors.New("Unknown colorspace")
+			return nil, errors.New("unknown colorspace")
 		}
 	}
 
@@ -148,7 +148,7 @@ func NewPdfColorspaceFromPdfObject(obj PdfObject) (PdfColorspace, error) {
 	}
 
 	common.Log.Debug("PDF File Error: Colorspace type error: %s", obj.String())
-	return nil, errors.New("Type error")
+	return nil, errors.New("type error")
 }
 
 // DetermineColorspaceNameFromPdfObject determines PDF colorspace from a PdfObject.  Returns the colorspace name and
@@ -250,7 +250,7 @@ func (cs *PdfColorspaceDeviceGray) String() string {
 
 func (cs *PdfColorspaceDeviceGray) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	val := vals[0]
@@ -271,7 +271,7 @@ func (cs *PdfColorspaceDeviceGray) ColorFromFloats(vals []float64) (PdfColor, er
 
 func (cs *PdfColorspaceDeviceGray) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -287,7 +287,7 @@ func (cs *PdfColorspaceDeviceGray) ColorToRGB(color PdfColor) (PdfColor, error) 
 	gray, ok := color.(*PdfColorDeviceGray)
 	if !ok {
 		common.Log.Debug("Input color not device gray %T", color)
-		return nil, errors.New("Type check error")
+		return nil, errors.New("type check error")
 	}
 
 	return NewPdfColorDeviceRGB(float64(*gray), float64(*gray), float64(*gray)), nil
@@ -385,25 +385,25 @@ func (cs *PdfColorspaceDeviceRGB) ToPdfObject() PdfObject {
 
 func (cs *PdfColorspaceDeviceRGB) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 3 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// Red.
 	r := vals[0]
 	if r < 0.0 || r > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// Green.
 	g := vals[1]
 	if g < 0.0 || g > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// Blue.
 	b := vals[2]
 	if b < 0.0 || b > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	color := NewPdfColorDeviceRGB(r, g, b)
@@ -414,7 +414,7 @@ func (cs *PdfColorspaceDeviceRGB) ColorFromFloats(vals []float64) (PdfColor, err
 // ColorFromPdfObjects gets the color from a series of pdf objects (3 for rgb).
 func (cs *PdfColorspaceDeviceRGB) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 3 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -429,7 +429,7 @@ func (cs *PdfColorspaceDeviceRGB) ColorToRGB(color PdfColor) (PdfColor, error) {
 	rgb, ok := color.(*PdfColorDeviceRGB)
 	if !ok {
 		common.Log.Debug("Input color not device RGB")
-		return nil, errors.New("Type check error")
+		return nil, errors.New("type check error")
 	}
 	return rgb, nil
 }
@@ -531,31 +531,31 @@ func (cs *PdfColorspaceDeviceCMYK) ToPdfObject() PdfObject {
 
 func (cs *PdfColorspaceDeviceCMYK) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 4 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// Cyan
 	c := vals[0]
 	if c < 0.0 || c > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// Magenta
 	m := vals[1]
 	if m < 0.0 || m > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// Yellow.
 	y := vals[2]
 	if y < 0.0 || y > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// Key.
 	k := vals[3]
 	if k < 0.0 || k > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	color := NewPdfColorDeviceCMYK(c, m, y, k)
@@ -565,7 +565,7 @@ func (cs *PdfColorspaceDeviceCMYK) ColorFromFloats(vals []float64) (PdfColor, er
 // ColorFromPdfObjects gets the color from a series of pdf objects (4 for cmyk).
 func (cs *PdfColorspaceDeviceCMYK) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 4 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -580,7 +580,7 @@ func (cs *PdfColorspaceDeviceCMYK) ColorToRGB(color PdfColor) (PdfColor, error) 
 	cmyk, ok := color.(*PdfColorDeviceCMYK)
 	if !ok {
 		common.Log.Debug("Input color not device cmyk")
-		return nil, errors.New("Type check error")
+		return nil, errors.New("type check error")
 	}
 
 	c := cmyk.C()
@@ -622,7 +622,7 @@ func (cs *PdfColorspaceDeviceCMYK) ImageToRGB(img Image) (Image, error) {
 	}
 	if len(decode) != 8 {
 		common.Log.Debug("Invalid decode array (%d): % .3f", len(decode), decode)
-		return img, errors.New("Invalid decode array")
+		return img, errors.New("invalid decode array")
 	}
 	common.Log.Trace("Decode array: % f", decode)
 
@@ -729,11 +729,11 @@ func newPdfColorspaceCalGrayFromPdfObject(obj PdfObject) (*PdfColorspaceCalGray,
 	obj = TraceToDirectObject(obj)
 	array, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("Type error")
+		return nil, fmt.Errorf("type error")
 	}
 
 	if array.Len() != 2 {
-		return nil, fmt.Errorf("Invalid CalGray colorspace")
+		return nil, fmt.Errorf("invalid CalGray colorspace")
 	}
 
 	// Name.
@@ -743,7 +743,7 @@ func newPdfColorspaceCalGrayFromPdfObject(obj PdfObject) (*PdfColorspaceCalGray,
 		return nil, fmt.Errorf("CalGray name not a Name object")
 	}
 	if *name != "CalGray" {
-		return nil, fmt.Errorf("Not a CalGray colorspace")
+		return nil, fmt.Errorf("not a CalGray colorspace")
 	}
 
 	// Dict.
@@ -832,12 +832,12 @@ func (cs *PdfColorspaceCalGray) ToPdfObject() PdfObject {
 
 func (cs *PdfColorspaceCalGray) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	val := vals[0]
 	if val < 0.0 || val > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	color := NewPdfColorCalGray(val)
@@ -846,7 +846,7 @@ func (cs *PdfColorspaceCalGray) ColorFromFloats(vals []float64) (PdfColor, error
 
 func (cs *PdfColorspaceCalGray) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -861,7 +861,7 @@ func (cs *PdfColorspaceCalGray) ColorToRGB(color PdfColor) (PdfColor, error) {
 	calgray, ok := color.(*PdfColorCalGray)
 	if !ok {
 		common.Log.Debug("Input color not cal gray")
-		return nil, errors.New("Type check error")
+		return nil, errors.New("type check error")
 	}
 
 	ANorm := calgray.Val()
@@ -1007,11 +1007,11 @@ func newPdfColorspaceCalRGBFromPdfObject(obj PdfObject) (*PdfColorspaceCalRGB, e
 	obj = TraceToDirectObject(obj)
 	array, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("Type error")
+		return nil, fmt.Errorf("type error")
 	}
 
 	if array.Len() != 2 {
-		return nil, fmt.Errorf("Invalid CalRGB colorspace")
+		return nil, fmt.Errorf("invalid CalRGB colorspace")
 	}
 
 	// Name.
@@ -1021,7 +1021,7 @@ func newPdfColorspaceCalRGBFromPdfObject(obj PdfObject) (*PdfColorspaceCalRGB, e
 		return nil, fmt.Errorf("CalRGB name not a Name object")
 	}
 	if *name != "CalRGB" {
-		return nil, fmt.Errorf("Not a CalRGB colorspace")
+		return nil, fmt.Errorf("not a CalRGB colorspace")
 	}
 
 	// Dict.
@@ -1146,25 +1146,25 @@ func (cs *PdfColorspaceCalRGB) ToPdfObject() PdfObject {
 
 func (cs *PdfColorspaceCalRGB) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 3 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// A
 	a := vals[0]
 	if a < 0.0 || a > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// B
 	b := vals[1]
 	if b < 0.0 || b > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// C.
 	c := vals[2]
 	if c < 0.0 || c > 1.0 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	color := NewPdfColorCalRGB(a, b, c)
@@ -1173,7 +1173,7 @@ func (cs *PdfColorspaceCalRGB) ColorFromFloats(vals []float64) (PdfColor, error)
 
 func (cs *PdfColorspaceCalRGB) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 3 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -1188,7 +1188,7 @@ func (cs *PdfColorspaceCalRGB) ColorToRGB(color PdfColor) (PdfColor, error) {
 	calrgb, ok := color.(*PdfColorCalRGB)
 	if !ok {
 		common.Log.Debug("Input color not cal rgb")
-		return nil, errors.New("Type check error")
+		return nil, errors.New("type check error")
 	}
 
 	// A, B, C in range 0.0 to 1.0
@@ -1347,28 +1347,28 @@ func newPdfColorspaceLabFromPdfObject(obj PdfObject) (*PdfColorspaceLab, error) 
 	obj = TraceToDirectObject(obj)
 	array, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("Type error")
+		return nil, fmt.Errorf("type error")
 	}
 
 	if array.Len() != 2 {
-		return nil, fmt.Errorf("Invalid CalRGB colorspace")
+		return nil, fmt.Errorf("invalid CalRGB colorspace")
 	}
 
 	// Name.
 	obj = TraceToDirectObject(array.Get(0))
 	name, ok := obj.(*PdfObjectName)
 	if !ok {
-		return nil, fmt.Errorf("Lab name not a Name object")
+		return nil, fmt.Errorf("lab name not a Name object")
 	}
 	if *name != "Lab" {
-		return nil, fmt.Errorf("Not a Lab colorspace")
+		return nil, fmt.Errorf("not a Lab colorspace")
 	}
 
 	// Dict.
 	obj = TraceToDirectObject(array.Get(1))
 	dict, ok := obj.(*PdfObjectDictionary)
 	if !ok {
-		return nil, fmt.Errorf("Colorspace dictionary missing or invalid")
+		return nil, fmt.Errorf("colorspace dictionary missing or invalid")
 	}
 
 	// WhitePoint (Required): [Xw, Yw, Zw]
@@ -1464,14 +1464,14 @@ func (cs *PdfColorspaceLab) ToPdfObject() PdfObject {
 
 func (cs *PdfColorspaceLab) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 3 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// L
 	l := vals[0]
 	if l < 0.0 || l > 100.0 {
 		common.Log.Debug("L out of range (got %v should be 0-100)", l)
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// A
@@ -1484,7 +1484,7 @@ func (cs *PdfColorspaceLab) ColorFromFloats(vals []float64) (PdfColor, error) {
 	}
 	if a < aMin || a > aMax {
 		common.Log.Debug("A out of range (got %v; range %v to %v)", a, aMin, aMax)
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	// B.
@@ -1497,7 +1497,7 @@ func (cs *PdfColorspaceLab) ColorFromFloats(vals []float64) (PdfColor, error) {
 	}
 	if b < bMin || b > bMax {
 		common.Log.Debug("b out of range (got %v; range %v to %v)", b, bMin, bMax)
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	color := NewPdfColorLab(l, a, b)
@@ -1506,7 +1506,7 @@ func (cs *PdfColorspaceLab) ColorFromFloats(vals []float64) (PdfColor, error) {
 
 func (cs *PdfColorspaceLab) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 3 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -1529,7 +1529,7 @@ func (cs *PdfColorspaceLab) ColorToRGB(color PdfColor) (PdfColor, error) {
 	lab, ok := color.(*PdfColorLab)
 	if !ok {
 		common.Log.Debug("input color not lab")
-		return nil, errors.New("Type check error")
+		return nil, errors.New("type check error")
 	}
 
 	// Get L*, a*, b* values.
@@ -1704,7 +1704,7 @@ func NewPdfColorspaceICCBased(N int) (*PdfColorspaceICCBased, error) {
 	cs := &PdfColorspaceICCBased{}
 
 	if N != 1 && N != 3 && N != 4 {
-		return nil, fmt.Errorf("Invalid N (1/3/4)")
+		return nil, fmt.Errorf("invalid N (1/3/4)")
 	}
 
 	cs.N = N
@@ -1722,11 +1722,11 @@ func newPdfColorspaceICCBasedFromPdfObject(obj PdfObject) (*PdfColorspaceICCBase
 	obj = TraceToDirectObject(obj)
 	array, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("Type error")
+		return nil, fmt.Errorf("type error")
 	}
 
 	if array.Len() != 2 {
-		return nil, fmt.Errorf("Invalid ICCBased colorspace")
+		return nil, fmt.Errorf("invalid ICCBased colorspace")
 	}
 
 	// Name.
@@ -1736,7 +1736,7 @@ func newPdfColorspaceICCBasedFromPdfObject(obj PdfObject) (*PdfColorspaceICCBase
 		return nil, fmt.Errorf("ICCBased name not a Name object")
 	}
 	if *name != "ICCBased" {
-		return nil, fmt.Errorf("Not an ICCBased colorspace")
+		return nil, fmt.Errorf("not an ICCBased colorspace")
 	}
 
 	// Stream
@@ -1890,7 +1890,7 @@ func (cs *PdfColorspaceICCBased) ColorToRGB(color PdfColor) (PdfColor, error) {
 		_, ok := color.(*PdfColorICCBased)
 		if !ok {
 			common.Log.Debug("ICC Based color error, type: %T", color)
-			return nil, errors.New("Type check error")
+			return nil, errors.New("type check error")
 		}
 	*/
 
@@ -1990,7 +1990,7 @@ func newPdfColorspaceSpecialPatternFromPdfObject(obj PdfObject) (*PdfColorspaceS
 	obj = TraceToDirectObject(obj)
 	if name, isName := obj.(*PdfObjectName); isName {
 		if *name != "Pattern" {
-			return nil, fmt.Errorf("Invalid name")
+			return nil, fmt.Errorf("invalid name")
 		}
 
 		return cs, nil
@@ -1999,18 +1999,18 @@ func newPdfColorspaceSpecialPatternFromPdfObject(obj PdfObject) (*PdfColorspaceS
 	array, ok := obj.(*PdfObjectArray)
 	if !ok {
 		common.Log.Error("Invalid Pattern CS Object: %#v", obj)
-		return nil, fmt.Errorf("Invalid Pattern CS object")
+		return nil, fmt.Errorf("invalid Pattern CS object")
 	}
 	if array.Len() != 1 && array.Len() != 2 {
 		common.Log.Error("Invalid Pattern CS array: %#v", array)
-		return nil, fmt.Errorf("Invalid Pattern CS array")
+		return nil, fmt.Errorf("invalid Pattern CS array")
 	}
 
 	obj = array.Get(0)
 	if name, isName := obj.(*PdfObjectName); isName {
 		if *name != "Pattern" {
 			common.Log.Error("Invalid Pattern CS array name: %#v", name)
-			return nil, fmt.Errorf("Invalid name")
+			return nil, fmt.Errorf("invalid name")
 		}
 	}
 
@@ -2047,7 +2047,7 @@ func (cs *PdfColorspaceSpecialPattern) ToPdfObject() PdfObject {
 
 func (cs *PdfColorspaceSpecialPattern) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if cs.UnderlyingCS == nil {
-		return nil, errors.New("Underlying CS not specified")
+		return nil, errors.New("underlying CS not specified")
 	}
 	return cs.UnderlyingCS.ColorFromFloats(vals)
 }
@@ -2057,7 +2057,7 @@ func (cs *PdfColorspaceSpecialPattern) ColorFromFloats(vals []float64) (PdfColor
 // the name of the pattern.
 func (cs *PdfColorspaceSpecialPattern) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) < 1 {
-		return nil, errors.New("Invalid number of parameters")
+		return nil, errors.New("invalid number of parameters")
 	}
 	patternColor := &PdfColorPattern{}
 
@@ -2074,7 +2074,7 @@ func (cs *PdfColorspaceSpecialPattern) ColorFromPdfObjects(objects []PdfObject) 
 		colorObjs := objects[0 : len(objects)-1]
 		if cs.UnderlyingCS == nil {
 			common.Log.Debug("Pattern color with defined color components but underlying cs missing")
-			return nil, errors.New("Underlying CS not defined")
+			return nil, errors.New("underlying CS not defined")
 		}
 		color, err := cs.UnderlyingCS.ColorFromPdfObjects(colorObjs)
 		if err != nil {
@@ -2103,7 +2103,7 @@ func (cs *PdfColorspaceSpecialPattern) ColorToRGB(color PdfColor) (PdfColor, err
 	}
 
 	if cs.UnderlyingCS == nil {
-		return nil, errors.New("Underlying CS not defined.")
+		return nil, errors.New("underlying CS not defined.")
 	}
 
 	return cs.UnderlyingCS.ColorToRGB(patternColor.Color)
@@ -2112,7 +2112,7 @@ func (cs *PdfColorspaceSpecialPattern) ColorToRGB(color PdfColor) (PdfColor, err
 // ImageToRGB returns an error since an image cannot be defined in a pattern colorspace.
 func (cs *PdfColorspaceSpecialPattern) ImageToRGB(img Image) (Image, error) {
 	common.Log.Debug("Error: Image cannot be specified in Pattern colorspace")
-	return img, errors.New("Invalid colorspace for image (pattern)")
+	return img, errors.New("invalid colorspace for image (pattern)")
 }
 
 // PdfColorspaceSpecialIndexed is an indexed color space is a lookup table, where the input element is an index to the
@@ -2157,21 +2157,21 @@ func newPdfColorspaceSpecialIndexedFromPdfObject(obj PdfObject) (*PdfColorspaceS
 	obj = TraceToDirectObject(obj)
 	array, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("Type error")
+		return nil, fmt.Errorf("type error")
 	}
 
 	if array.Len() != 4 {
-		return nil, fmt.Errorf("Indexed CS: invalid array length")
+		return nil, fmt.Errorf("indexed CS: invalid array length")
 	}
 
 	// Check name.
 	obj = array.Get(0)
 	name, ok := obj.(*PdfObjectName)
 	if !ok {
-		return nil, fmt.Errorf("Indexed CS: invalid name")
+		return nil, fmt.Errorf("indexed CS: invalid name")
 	}
 	if *name != "Indexed" {
-		return nil, fmt.Errorf("Indexed CS: wrong name")
+		return nil, fmt.Errorf("indexed CS: wrong name")
 	}
 
 	// Get base colormap.
@@ -2197,7 +2197,7 @@ func newPdfColorspaceSpecialIndexedFromPdfObject(obj PdfObject) (*PdfColorspaceS
 		return nil, err
 	}
 	if val > 255 {
-		return nil, fmt.Errorf("Indexed CS: Invalid hival")
+		return nil, fmt.Errorf("indexed CS: Invalid hival")
 	}
 	cs.HiVal = int(val)
 
@@ -2219,7 +2219,7 @@ func newPdfColorspaceSpecialIndexedFromPdfObject(obj PdfObject) (*PdfColorspaceS
 		common.Log.Trace("Decoded (%d) : % X", len(decoded), decoded)
 		data = decoded
 	} else {
-		return nil, fmt.Errorf("Indexed CS: Invalid table format")
+		return nil, fmt.Errorf("indexed CS: Invalid table format")
 	}
 
 	if len(data) < cs.Base.GetNumComponents()*(cs.HiVal+1) {
@@ -2239,14 +2239,14 @@ func newPdfColorspaceSpecialIndexedFromPdfObject(obj PdfObject) (*PdfColorspaceS
 
 func (cs *PdfColorspaceSpecialIndexed) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	N := cs.Base.GetNumComponents()
 
 	index := int(vals[0]) * N
 	if index < 0 || (index+N-1) >= len(cs.colorLookup) {
-		return nil, errors.New("Outside range")
+		return nil, errors.New("outside range")
 	}
 
 	cvals := cs.colorLookup[index : index+N]
@@ -2264,7 +2264,7 @@ func (cs *PdfColorspaceSpecialIndexed) ColorFromFloats(vals []float64) (PdfColor
 
 func (cs *PdfColorspaceSpecialIndexed) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -2277,7 +2277,7 @@ func (cs *PdfColorspaceSpecialIndexed) ColorFromPdfObjects(objects []PdfObject) 
 
 func (cs *PdfColorspaceSpecialIndexed) ColorToRGB(color PdfColor) (PdfColor, error) {
 	if cs.Base == nil {
-		return nil, errors.New("Indexed base colorspace undefined")
+		return nil, errors.New("indexed base colorspace undefined")
 	}
 
 	return cs.Base.ColorToRGB(color)
@@ -2391,28 +2391,28 @@ func newPdfColorspaceSpecialSeparationFromPdfObject(obj PdfObject) (*PdfColorspa
 	obj = TraceToDirectObject(obj)
 	array, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("Separation CS: Invalid object")
+		return nil, fmt.Errorf("separation CS: Invalid object")
 	}
 
 	if array.Len() != 4 {
-		return nil, fmt.Errorf("Separation CS: Incorrect array length")
+		return nil, fmt.Errorf("separation CS: Incorrect array length")
 	}
 
 	// Check name.
 	obj = array.Get(0)
 	name, ok := obj.(*PdfObjectName)
 	if !ok {
-		return nil, fmt.Errorf("Separation CS: invalid family name")
+		return nil, fmt.Errorf("separation CS: invalid family name")
 	}
 	if *name != "Separation" {
-		return nil, fmt.Errorf("Separation CS: wrong family name")
+		return nil, fmt.Errorf("separation CS: wrong family name")
 	}
 
 	// Get colorant name.
 	obj = array.Get(1)
 	name, ok = obj.(*PdfObjectName)
 	if !ok {
-		return nil, fmt.Errorf("Separation CS: Invalid colorant name")
+		return nil, fmt.Errorf("separation CS: Invalid colorant name")
 	}
 	cs.ColorantName = name
 
@@ -2454,7 +2454,7 @@ func (cs *PdfColorspaceSpecialSeparation) ToPdfObject() PdfObject {
 
 func (cs *PdfColorspaceSpecialSeparation) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	tint := vals[0]
@@ -2478,7 +2478,7 @@ func (cs *PdfColorspaceSpecialSeparation) ColorFromFloats(vals []float64) (PdfCo
 
 func (cs *PdfColorspaceSpecialSeparation) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != 1 {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -2492,7 +2492,7 @@ func (cs *PdfColorspaceSpecialSeparation) ColorFromPdfObjects(objects []PdfObjec
 // ColorToRGB converts a color in Separation colorspace to RGB colorspace.
 func (cs *PdfColorspaceSpecialSeparation) ColorToRGB(color PdfColor) (PdfColor, error) {
 	if cs.AlternateSpace == nil {
-		return nil, errors.New("Alternate colorspace undefined")
+		return nil, errors.New("alternate colorspace undefined")
 	}
 
 	return cs.AlternateSpace.ColorToRGB(color)
@@ -2604,21 +2604,21 @@ func newPdfColorspaceDeviceNFromPdfObject(obj PdfObject) (*PdfColorspaceDeviceN,
 	obj = TraceToDirectObject(obj)
 	csArray, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("DeviceN CS: Invalid object")
+		return nil, fmt.Errorf("deviceN CS: Invalid object")
 	}
 
 	if csArray.Len() != 4 && csArray.Len() != 5 {
-		return nil, fmt.Errorf("DeviceN CS: Incorrect array length")
+		return nil, fmt.Errorf("deviceN CS: Incorrect array length")
 	}
 
 	// Check name.
 	obj = csArray.Get(0)
 	name, ok := obj.(*PdfObjectName)
 	if !ok {
-		return nil, fmt.Errorf("DeviceN CS: invalid family name")
+		return nil, fmt.Errorf("deviceN CS: invalid family name")
 	}
 	if *name != "DeviceN" {
-		return nil, fmt.Errorf("DeviceN CS: wrong family name")
+		return nil, fmt.Errorf("deviceN CS: wrong family name")
 	}
 
 	// Get colorant names.  Specifies the number of components too.
@@ -2626,7 +2626,7 @@ func newPdfColorspaceDeviceNFromPdfObject(obj PdfObject) (*PdfColorspaceDeviceN,
 	obj = TraceToDirectObject(obj)
 	nameArray, ok := obj.(*PdfObjectArray)
 	if !ok {
-		return nil, fmt.Errorf("DeviceN CS: Invalid names array")
+		return nil, fmt.Errorf("deviceN CS: Invalid names array")
 	}
 	cs.ColorantNames = nameArray
 
@@ -2680,7 +2680,7 @@ func (cs *PdfColorspaceDeviceN) ToPdfObject() PdfObject {
 // ColorFromFloats returns a new PdfColor based on input color components.
 func (cs *PdfColorspaceDeviceN) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != cs.GetNumComponents() {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	output, err := cs.TintTransform.Evaluate(vals)
@@ -2699,7 +2699,7 @@ func (cs *PdfColorspaceDeviceN) ColorFromFloats(vals []float64) (PdfColor, error
 // be numeric.
 func (cs *PdfColorspaceDeviceN) ColorFromPdfObjects(objects []PdfObject) (PdfColor, error) {
 	if len(objects) != cs.GetNumComponents() {
-		return nil, errors.New("Range check")
+		return nil, errors.New("range check")
 	}
 
 	floats, err := GetNumbersAsFloat(objects)
@@ -2783,20 +2783,20 @@ func newPdfColorspaceDeviceNAttributesFromPdfObject(obj PdfObject) (*PdfColorspa
 		dict, ok = indObj.PdfObject.(*PdfObjectDictionary)
 		if !ok {
 			common.Log.Error("DeviceN attribute type error")
-			return nil, errors.New("Type error")
+			return nil, errors.New("type error")
 		}
 	} else if d, isDict := obj.(*PdfObjectDictionary); isDict {
 		dict = d
 	} else {
 		common.Log.Error("DeviceN attribute type error")
-		return nil, errors.New("Type error")
+		return nil, errors.New("type error")
 	}
 
 	if obj := dict.Get("Subtype"); obj != nil {
 		name, ok := TraceToDirectObject(obj).(*PdfObjectName)
 		if !ok {
 			common.Log.Error("DeviceN attribute Subtype type error")
-			return nil, errors.New("Type error")
+			return nil, errors.New("type error")
 		}
 
 		attr.Subtype = name

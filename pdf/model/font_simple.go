@@ -15,6 +15,9 @@ import (
 	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
 
+// pdfFontSimple implements pdfFont
+var _ pdfFont = (*pdfFontSimple)(nil)
+
 // pdfFontSimple describes a Simple Font
 //
 // 9.6 Simple Fonts (page 254)
@@ -62,6 +65,10 @@ func pdfFontSimpleFromSkeleton(base *fontCommon) *pdfFontSimple {
 // baseFields returns the fields of `font` that are common to all PDF fonts.
 func (font *pdfFontSimple) baseFields() *fontCommon {
 	return &font.fontCommon
+}
+
+func (font *pdfFontSimple) getFontDescriptor() *PdfFontDescriptor {
+	return font.fontDescriptor
 }
 
 // Encoder returns the font's text encoder.
@@ -430,138 +437,13 @@ func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
 	return font, nil
 }
 
-// Standard14Font is to be used only to define the standard 14 font names that follow.
-// This guarantees that calls to NewStandard14FontMustCompile will succeed.
-type Standard14Font string
-
-const (
-	Courier              Standard14Font = "Courier"
-	CourierBold          Standard14Font = "Courier-Bold"
-	CourierBoldOblique   Standard14Font = "Courier-BoldOblique"
-	CourierOblique       Standard14Font = "Courier-Oblique"
-	Helvetica            Standard14Font = "Helvetica"
-	HelveticaBold        Standard14Font = "Helvetica-Bold"
-	HelveticaBoldOblique Standard14Font = "Helvetica-BoldOblique"
-	HelveticaOblique     Standard14Font = "Helvetica-Oblique"
-	TimesRoman           Standard14Font = "Times-Roman"
-	TimesBold            Standard14Font = "Times-Bold"
-	TimesBoldItalic      Standard14Font = "Times-BoldItalic"
-	TimesItalic          Standard14Font = "Times-Italic"
-	Symbol               Standard14Font = "Symbol"
-	ZapfDingbats         Standard14Font = "ZapfDingbats"
-)
-
-var standard14Fonts = map[Standard14Font]pdfFontSimple{
-	Courier: {
+func stdFontToSimpleFont(f fonts.StdFont) pdfFontSimple {
+	return pdfFontSimple{
 		fontCommon: fontCommon{
 			subtype:  "Type1",
-			basefont: "Courier",
+			basefont: f.Name(),
 		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierCharMetrics,
-	},
-	CourierBold: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Courier-Bold",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierBoldCharMetrics,
-	},
-	CourierBoldOblique: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Courier-BoldOblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierBoldObliqueCharMetrics,
-	},
-	CourierOblique: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Courier-Oblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.CourierObliqueCharMetrics,
-	},
-	Helvetica: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaCharMetrics,
-	},
-	HelveticaBold: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica-Bold",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaBoldCharMetrics,
-	},
-	HelveticaBoldOblique: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica-BoldOblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaBoldObliqueCharMetrics,
-	},
-	HelveticaOblique: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Helvetica-Oblique",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.HelveticaObliqueCharMetrics,
-	},
-	TimesRoman: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-Roman",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesRomanCharMetrics,
-	},
-	TimesBold: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-Bold",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesBoldCharMetrics,
-	},
-	TimesBoldItalic: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-BoldItalic",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesBoldItalicCharMetrics,
-	},
-	TimesItalic: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Times-Italic",
-		},
-		encoder:     textencoding.NewWinAnsiTextEncoder(),
-		fontMetrics: fonts.TimesItalicCharMetrics,
-	},
-	Symbol: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "Symbol",
-		},
-		encoder:     textencoding.NewSymbolEncoder(),
-		fontMetrics: fonts.SymbolCharMetrics,
-	},
-	ZapfDingbats: {
-		fontCommon: fontCommon{
-			subtype:  "Type1",
-			basefont: "ZapfDingbats",
-		},
-		encoder:     textencoding.NewZapfDingbatsEncoder(),
-		fontMetrics: fonts.ZapfDingbatsCharMetrics,
-	},
+		encoder:     f.Encoder(),
+		fontMetrics: f.GetMetricsTable(),
+	}
 }
