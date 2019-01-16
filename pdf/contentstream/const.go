@@ -8,5 +8,8 @@ package contentstream
 import "errors"
 
 var (
-	ErrInvalidOperand = errors.New("invalid operand")
+	errInvalidOperand = errors.New("invalid operand")
+	errTypeCheck      = errors.New("type check error")
+	errRangeCheck     = errors.New("range check error")
+	errNotFound       = errors.New("not found")
 )

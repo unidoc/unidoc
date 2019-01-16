@@ -582,7 +582,7 @@ func (csp *ContentStreamParser) parseObject() (obj core.PdfObject, err error, is
 				return operand, err, false
 			}
 			if len(operand.String()) < 1 {
-				return operand, ErrInvalidOperand, false
+				return operand, errInvalidOperand, false
 			}
 			return operand, nil, true
 		}

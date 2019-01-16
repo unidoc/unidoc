@@ -22,6 +22,10 @@ type GraphicsState struct {
 	ColorStroking         model.PdfColor
 	ColorNonStroking      model.PdfColor
 	CTM                   transform.Matrix
+
+	// Transparency alpha values (CA/ca).
+	AlphaStroking    float64
+	AlphaNonStroking float64
 }
 
 // GraphicsStateStack represents a stack of GraphicsState.
@@ -220,16 +224,23 @@ func (proc *ContentStreamProcessor) Process(resources *model.PdfPageResources) e
 	proc.graphicsState.ColorStroking = model.NewPdfColorDeviceGray(0)
 	proc.graphicsState.ColorNonStroking = model.NewPdfColorDeviceGray(0)
 	proc.graphicsState.CTM = transform.IdentityMatrix()
+	proc.graphicsState.AlphaStroking = 1
+	proc.graphicsState.AlphaNonStroking = 1
 
 	for _, op := range proc.operations {
 		var err error
 
 		// Internal handling.
 		switch op.Operand {
+		// Graphics state operations.
 		case "q":
 			proc.graphicsStack.Push(proc.graphicsState)
 		case "Q":
 			proc.graphicsState = proc.graphicsStack.Pop()
+		case "gs":
+			err = proc.handleCommand_gs(op, resources)
+		case "cm":
+			err = proc.handleCommand_cm(op, resources)
 
 		// Color operations (Table 74 p. 179)
 		case "CS":
@@ -256,8 +267,6 @@ func (proc *ContentStreamProcessor) Process(resources *model.PdfPageResources) e
 			err = proc.handleCommand_K(op, resources)
 		case "k":
 			err = proc.handleCommand_k(op, resources)
-		case "cm":
-			err = proc.handleCommand_cm(op, resources)
 		}
 		if err != nil {
 			common.Log.Debug("Processor handling error (%s): %v", op.Operand, err)
@@ -296,7 +305,7 @@ func (proc *ContentStreamProcessor) handleCommand_CS(op *ContentStreamOperation,
 	name, ok := op.Params[0].(*core.PdfObjectName)
 	if !ok {
 		common.Log.Debug("ERROR: cs command with invalid parameter, skipping over")
-		return errors.New("type check error")
+		return errTypeCheck
 	}
 	// Set the current color space to use for stroking operations.
 	// Either device based or referring to resource dict.
@@ -318,18 +327,13 @@ func (proc *ContentStreamProcessor) handleCommand_CS(op *ContentStreamOperation,
 
 // cs: Set the current color space for non-stroking operations.
 func (proc *ContentStreamProcessor) handleCommand_cs(op *ContentStreamOperation, resources *model.PdfPageResources) error {
-	if len(op.Params) < 1 {
-		common.Log.Debug("Invalid CS command, skipping over")
-		return errors.New("too few parameters")
-	}
-	if len(op.Params) > 1 {
-		common.Log.Debug("CS command with too many parameters - continuing")
-		return errors.New("too many parameters")
+	if len(op.Params) != 1 {
+		return errRangeCheck
 	}
 	name, ok := op.Params[0].(*core.PdfObjectName)
 	if !ok {
 		common.Log.Debug("ERROR: CS command with invalid parameter, skipping over")
-		return errors.New("type check error")
+		return errTypeCheck
 	}
 	// Set the current color space to use for non-stroking operations.
 	// Either device based or referring to resource dict.
@@ -358,7 +362,7 @@ func (proc *ContentStreamProcessor) handleCommand_SC(op *ContentStreamOperation,
 	if len(op.Params) != cs.GetNumComponents() {
 		common.Log.Debug("Invalid number of parameters for SC")
 		common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-		return errors.New("invalid number of parameters")
+		return errRangeCheck
 	}
 
 	color, err := cs.ColorFromPdfObjects(op.Params)
@@ -383,7 +387,7 @@ func (proc *ContentStreamProcessor) handleCommand_SCN(op *ContentStreamOperation
 		if len(op.Params) != cs.GetNumComponents() {
 			common.Log.Debug("Invalid number of parameters for SC")
 			common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-			return errors.New("invalid number of parameters")
+			return errRangeCheck
 		}
 	}
 
@@ -405,7 +409,7 @@ func (proc *ContentStreamProcessor) handleCommand_sc(op *ContentStreamOperation,
 		if len(op.Params) != cs.GetNumComponents() {
 			common.Log.Debug("Invalid number of parameters for SC")
 			common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-			return errors.New("invalid number of parameters")
+			return errRangeCheck
 		}
 	}
 
@@ -427,7 +431,7 @@ func (proc *ContentStreamProcessor) handleCommand_scn(op *ContentStreamOperation
 		if len(op.Params) != cs.GetNumComponents() {
 			common.Log.Debug("Invalid number of parameters for SC")
 			common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-			return errors.New("invalid number of parameters")
+			return errRangeCheck
 		}
 	}
 
@@ -449,7 +453,7 @@ func (proc *ContentStreamProcessor) handleCommand_G(op *ContentStreamOperation, 
 	if len(op.Params) != cs.GetNumComponents() {
 		common.Log.Debug("Invalid number of parameters for SC")
 		common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-		return errors.New("invalid number of parameters")
+		return errRangeCheck
 	}
 
 	color, err := cs.ColorFromPdfObjects(op.Params)
@@ -470,7 +474,7 @@ func (proc *ContentStreamProcessor) handleCommand_g(op *ContentStreamOperation, 
 	if len(op.Params) != cs.GetNumComponents() {
 		common.Log.Debug("Invalid number of parameters for g")
 		common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-		return errors.New("invalid number of parameters")
+		return errRangeCheck
 	}
 
 	color, err := cs.ColorFromPdfObjects(op.Params)
@@ -492,7 +496,7 @@ func (proc *ContentStreamProcessor) handleCommand_RG(op *ContentStreamOperation,
 	if len(op.Params) != cs.GetNumComponents() {
 		common.Log.Debug("Invalid number of parameters for RG")
 		common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-		return errors.New("invalid number of parameters")
+		return errRangeCheck
 	}
 
 	color, err := cs.ColorFromPdfObjects(op.Params)
@@ -512,7 +516,7 @@ func (proc *ContentStreamProcessor) handleCommand_rg(op *ContentStreamOperation,
 	if len(op.Params) != cs.GetNumComponents() {
 		common.Log.Debug("Invalid number of parameters for SC")
 		common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-		return errors.New("invalid number of parameters")
+		return errRangeCheck
 	}
 
 	color, err := cs.ColorFromPdfObjects(op.Params)
@@ -533,7 +537,7 @@ func (proc *ContentStreamProcessor) handleCommand_K(op *ContentStreamOperation, 
 	if len(op.Params) != cs.GetNumComponents() {
 		common.Log.Debug("Invalid number of parameters for SC")
 		common.Log.Debug("Number %d not matching colorspace %T", len(op.Params), cs)
-		return errors.New("invalid number of parameters")
+		return errRangeCheck
 	}
 
 	color, err := cs.ColorFromPdfObjects(op.Params)
@@ -572,7 +576,7 @@ func (proc *ContentStreamProcessor) handleCommand_cm(op *ContentStreamOperation,
 	resources *model.PdfPageResources) error {
 	if len(op.Params) != 6 {
 		common.Log.Debug("ERROR: Invalid number of parameters for cm: %d", len(op.Params))
-		return errors.New("invalid number of parameters")
+		return errRangeCheck
 	}
 
 	f, err := core.GetNumbersAsFloat(op.Params)
@@ -581,6 +585,47 @@ func (proc *ContentStreamProcessor) handleCommand_cm(op *ContentStreamOperation,
 	}
 	m := transform.NewMatrix(f[0], f[1], f[2], f[3], f[4], f[5])
 	proc.graphicsState.CTM.Concat(m)
+
+	return nil
+}
+
+// gs: Set graphics state.
+func (proc *ContentStreamProcessor) handleCommand_gs(op *ContentStreamOperation,
+	resources *model.PdfPageResources) error {
+	if len(op.Params) != 1 {
+		return errRangeCheck
+	}
+	rname, ok := core.GetName(op.Params[0])
+	if !ok {
+		return errTypeCheck
+	}
+	if rname == nil {
+		return errTypeCheck
+	}
+	extobj, ok := resources.GetExtGState(*rname)
+	if !ok {
+		return errNotFound
+	}
+	extdict, ok := core.GetDict(extobj)
+	if !ok {
+		return errTypeCheck
+	}
+	for _, k := range extdict.Keys() {
+		switch k.String() {
+		case "CA": // stroking alpha value.
+			alpha, err := core.GetNumberAsFloat(extdict.Get(k))
+			if err != nil {
+				return err
+			}
+			proc.graphicsState.AlphaStroking = alpha
+		case "ca": // nonstroking alpha value.
+			alpha, err := core.GetNumberAsFloat(extdict.Get(k))
+			if err != nil {
+				return err
+			}
+			proc.graphicsState.AlphaNonStroking = alpha
+		}
+	}
 
 	return nil
 }
