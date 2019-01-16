@@ -38,6 +38,9 @@ type PdfFont struct {
 
 // GetFontDescriptor returns the font descriptor for `font`.
 func (font PdfFont) GetFontDescriptor() (*PdfFontDescriptor, error) {
+	if t, ok := font.context.(*pdfFontType0); ok {
+		return t.DescendantFont.GetFontDescriptor()
+	}
 	return font.context.getFontDescriptor(), nil
 }
 
