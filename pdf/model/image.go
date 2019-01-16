@@ -28,6 +28,11 @@ type Image struct {
 	ColorComponents  int    // Color components per pixel
 	Data             []byte // Image data stored as bytes.
 
+	// TODO(gunnsth): Store an image mask instead of alphaData. The mask can define either
+	// mask or transparency (alpha values) depending on the graphics state (alpha source parameter).
+	// See 11.6.5.3 (PDF32000_2008).  Can use draw.DrawMask to combine image and mask to an
+	// output image (depends on graphics state).
+
 	// Transparency data: alpha channel.
 	// Stored in same bits per component as original data with 1 color component.
 	alphaData []byte // Alpha channel data.

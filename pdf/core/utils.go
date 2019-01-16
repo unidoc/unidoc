@@ -177,13 +177,6 @@ func (parser *PdfParser) inspect() (map[string]int, error) {
 	return objTypes, nil
 }
 
-func absInt(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 // EqualObjects returns true if `obj1` and `obj2` have the same contents.
 //
 // NOTE: It is a good idea to flatten obj1 and obj2 with FlattenObject before calling this function

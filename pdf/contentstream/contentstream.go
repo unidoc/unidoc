@@ -20,6 +20,7 @@ type ContentStreamOperation struct {
 }
 
 // ContentStreamOperations is a slice of ContentStreamOperations.
+// TODO(gunnsth): Change into opaque type (struct). (v3)
 type ContentStreamOperations []*ContentStreamOperation
 
 // Check if the content stream operations are fully wrapped (within q ... Q)

@@ -57,6 +57,7 @@ type PdfColorspace interface {
 }
 
 // PdfColor interface represents a generic color in PDF.
+// TODO(gunnsth): Consider implementing color.Color interface.
 type PdfColor interface {
 }
 
