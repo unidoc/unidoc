@@ -63,6 +63,7 @@ type PdfPage struct {
 func NewPdfPage() *PdfPage {
 	page := PdfPage{}
 	page.pageDict = MakeDict()
+	page.Resources = NewPdfPageResources()
 
 	container := PdfIndirectObject{}
 	container.PdfObject = page.pageDict
