@@ -41,23 +41,6 @@ type PdfFont interface {
 	ToUnicode() core.PdfObject
 	ToUnicodeCMap() *cmap.CMap
 
-	// GetCharMetrics returns the char metrics for character code `code`.
-	// How it works:
-	//  1) It calls the GetCharMetrics function for the underlying font, either a simple font or
-	//     a Type0 font. The underlying font GetCharMetrics() functions do direct charcode ➞  metrics
-	//     mappings.
-	//  2) If the underlying font's GetCharMetrics() doesn't have a CharMetrics for `code` then a
-	//     a CharMetrics with the FontDescriptor's /MissingWidth is returned.
-	//  3) If there is no /MissingWidth then a failure is returned.
-	// TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
-	//                       well give them 0 width. There is no need for the bool return.
-	// TODO(gunnsth): Reconsider whether needed or if can map via GlyphName.
-	// TODO(peterwilliams97): pdfFontType0.GetCharMetrics() calls pdfCIDFontType2.GetCharMetrics()
-	// 						  through this function. Would it be more straightforward for
-	// 						  pdfFontType0.GetCharMetrics() to call pdfCIDFontType0.GetCharMetrics()
-	// 						  and pdfCIDFontType2.GetCharMetrics() directly?
-	GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool)
-
 	// BytesToCharcodes converts the bytes in a PDF string to character codes.
 	// TODO(dennwc): Shouldn't this be done by the encoder?
 	BytesToCharcodes(data []byte) []textencoding.CharCode

@@ -658,8 +658,8 @@ func (to *textObject) renderText(data []byte) error {
 
 	font := to.getCurrentFont()
 
+	// TODO(dennwc): this pair of calls should really be font.Encoder().Decode()
 	charcodes := font.BytesToCharcodes(data)
-
 	runes, numChars, numMisses := font.CharcodesToUnicodeWithStats(charcodes)
 	if numMisses > 0 {
 		common.Log.Debug("renderText: numChars=%d numMisses=%d", numChars, numMisses)
@@ -672,9 +672,6 @@ func (to *textObject) renderText(data []byte) error {
 	tfs := state.tfs
 	th := state.th / 100.0
 	spaceMetrics, ok := font.GetRuneMetrics(' ')
-	if !ok {
-		spaceMetrics, ok = font.GetCharMetrics(32)
-	}
 	if !ok {
 		spaceMetrics, _ = model.DefaultFont().GetRuneMetrics(' ')
 	}
@@ -708,9 +705,9 @@ func (to *textObject) renderText(data []byte) error {
 			w = state.tw
 		}
 
-		m, ok := font.GetCharMetrics(code)
+		m, ok := font.GetRuneMetrics(r)
 		if !ok {
-			common.Log.Debug("ERROR: No metric for code=%d r=0x%04x=%+q %s", code, r, r, font)
+			common.Log.Debug("ERROR: No metric for r=0x%04x=%+q %s", r, r, font)
 			return errors.New("no char metrics")
 		}
 

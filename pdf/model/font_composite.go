@@ -92,9 +92,27 @@ import (
 */
 
 // pdfCIDFont can be either CIDFontType0 or CIDFontType2 font.
+// TODO(dennwc): looking at the code, it should not implement Encoder, IsCID
 type pdfCIDFont interface {
 	PdfFont
 	isCID()
+
+	// GetCharMetrics returns the char metrics for character code `code`.
+	// How it works:
+	//  1) It calls the GetCharMetrics function for the underlying font, either a simple font or
+	//     a Type0 font. The underlying font GetCharMetrics() functions do direct charcode ➞  metrics
+	//     mappings.
+	//  2) If the underlying font's GetCharMetrics() doesn't have a CharMetrics for `code` then a
+	//     a CharMetrics with the FontDescriptor's /MissingWidth is returned.
+	//  3) If there is no /MissingWidth then a failure is returned.
+	// TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
+	//                       well give them 0 width. There is no need for the bool return.
+	// TODO(gunnsth): Reconsider whether needed or if can map via GlyphName.
+	// TODO(peterwilliams97): pdfFontType0.GetCharMetrics() calls pdfCIDFontType2.GetCharMetrics()
+	// 						  through this function. Would it be more straightforward for
+	// 						  pdfFontType0.GetCharMetrics() to call pdfCIDFontType0.GetCharMetrics()
+	// 						  and pdfCIDFontType2.GetCharMetrics() directly?
+	GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool)
 }
 
 // pdfFontType0 implements PdfFont
@@ -176,15 +194,6 @@ func (font pdfFontType0) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 	return font.descendantFont.GetRuneMetrics(r)
 }
 
-// GetCharMetrics returns the char metrics for character code `code`.
-func (font pdfFontType0) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
-	if font.descendantFont == nil {
-		common.Log.Debug("ERROR: No descendant. font=%s", font)
-		return fonts.CharMetrics{}, false
-	}
-	return font.descendantFont.GetCharMetrics(code)
-}
-
 // Encoder returns the font's text encoder.
 func (font pdfFontType0) Encoder() textencoding.TextEncoder {
 	return font.encoder
@@ -262,9 +271,6 @@ type pdfCIDFontType0 struct {
 	fontCommon
 	container *core.PdfIndirectObject
 
-	// These fields are specific to Type 0 fonts.
-	encoder textencoding.TextEncoder
-
 	// Table 117 – Entries in a CIDFont dictionary (page 269)
 	CIDSystemInfo *core.PdfObjectDictionary // (Required) Dictionary that defines the character
 	// collection of the CIDFont. See Table 116.
@@ -313,7 +319,7 @@ func (font *pdfCIDFontType0) BuiltinDescriptor() bool {
 
 // Encoder returns the font's text encoder.
 func (font pdfCIDFontType0) Encoder() textencoding.TextEncoder {
-	return font.encoder
+	return nil
 }
 
 func (font *pdfCIDFontType0) BytesToCharcodes(data []byte) []textencoding.CharCode {
@@ -383,9 +389,6 @@ type pdfCIDFontType2 struct {
 	fontCommon
 	container *core.PdfIndirectObject
 
-	// These fields are specific to Type 0 fonts.
-	encoder textencoding.TextEncoder
-
 	CIDSystemInfo *core.PdfObjectDictionary
 	DW            core.PdfObject
 	W             core.PdfObject
@@ -397,7 +400,7 @@ type pdfCIDFontType2 struct {
 	defaultWidth float64
 
 	// Mapping between unicode runes to widths.
-	// TODO(dennwc): it is used only in GetGlyphCharMetrics
+	// TODO(dennwc): it is used only in GetCharMetrics / GetRuneMetrics
 	//  			 we can precompute metrics and drop it
 	runeToWidthMap map[rune]int
 }
@@ -459,7 +462,7 @@ func (font *pdfCIDFontType2) CharcodesToUnicodeWithStats(charcodes []textencodin
 
 // Encoder returns the font's text encoder.
 func (font pdfCIDFontType2) Encoder() textencoding.TextEncoder {
-	return font.encoder
+	return nil
 }
 
 // GetRuneMetrics returns the character metrics for the specified rune.
