@@ -61,8 +61,8 @@ type Creator struct {
 	optimizer model.Optimizer
 
 	// Default fonts used by all components instantiated through the creator.
-	defaultFontRegular *model.PdfFont
-	defaultFontBold    *model.PdfFont
+	defaultFontRegular model.PdfFont
+	defaultFontBold    model.PdfFont
 }
 
 // SetForms adds an Acroform to a PDF file.  Sets the specified form for writing.

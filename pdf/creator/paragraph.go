@@ -23,7 +23,7 @@ type Paragraph struct {
 	text string
 
 	// The font to be used to draw the text.
-	textFont *model.PdfFont
+	textFont model.PdfFont
 
 	// The font size (points).
 	fontSize float64
@@ -102,7 +102,7 @@ func newParagraph(text string, style TextStyle) *Paragraph {
 }
 
 // SetFont sets the Paragraph's font.
-func (p *Paragraph) SetFont(font *model.PdfFont) {
+func (p *Paragraph) SetFont(font model.PdfFont) {
 	p.textFont = font
 }
 

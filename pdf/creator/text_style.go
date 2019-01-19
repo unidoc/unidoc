@@ -15,14 +15,14 @@ type TextStyle struct {
 	Color Color
 
 	// The font the text will use.
-	Font *model.PdfFont
+	Font model.PdfFont
 
 	// The size of the font.
 	FontSize float64
 }
 
 // newTextStyle creates a new text style object using the specified font.
-func newTextStyle(font *model.PdfFont) TextStyle {
+func newTextStyle(font model.PdfFont) TextStyle {
 	return TextStyle{
 		Color:    ColorRGBFrom8bit(0, 0, 0),
 		Font:     font,
@@ -32,7 +32,7 @@ func newTextStyle(font *model.PdfFont) TextStyle {
 
 // newLinkStyle creates a new text style object which can be
 // used for link annotations.
-func newLinkStyle(font *model.PdfFont) TextStyle {
+func newLinkStyle(font model.PdfFont) TextStyle {
 	return TextStyle{
 		Color:    ColorRGBFrom8bit(0, 0, 238),
 		Font:     font,

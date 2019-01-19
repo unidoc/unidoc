@@ -18,8 +18,12 @@ import (
 	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
 
-// PdfFontSub is an internal interface for fonts that can be stored in PDF documents.
-type PdfFontSub interface {
+// PdfFont represents an underlying font structure which can be of type:
+// - Type0
+// - Type1
+// - TrueType
+// etc.
+type PdfFont interface {
 	fonts.Font
 	// String returns a string that describes the font.
 	String() string
@@ -62,19 +66,10 @@ type PdfFontSub interface {
 	CharcodesToUnicodeWithStats(charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int)
 }
 
-// PdfFont represents an underlying font structure which can be of type:
-// - Type0
-// - Type1
-// - TrueType
-// etc.
-type PdfFont struct {
-	PdfFontSub // The underlying font: Type0, Type1, Truetype, etc..
-}
-
 // DefaultFont returns the default font, which is currently the built in Helvetica.
-func DefaultFont() *PdfFont {
-	std := stdFontToSimpleFont(fonts.NewFontHelvetica())
-	return &PdfFont{&std}
+func DefaultFont() PdfFont {
+	font := stdFontToSimpleFont(fonts.NewFontHelvetica())
+	return &font
 }
 
 func newStandard14Font(basefont fonts.StdFontName) (pdfFontSimple, error) {
@@ -88,18 +83,18 @@ func newStandard14Font(basefont fonts.StdFontName) (pdfFontSimple, error) {
 
 // NewStandard14Font returns the standard 14 font named `basefont` as a *PdfFont, or an error if it
 // `basefont` is not one of the standard 14 font names.
-func NewStandard14Font(basefont fonts.StdFontName) (*PdfFont, error) {
+func NewStandard14Font(basefont fonts.StdFontName) (PdfFont, error) {
 	std, err := newStandard14Font(basefont)
 	if err != nil {
 		return nil, err
 	}
-	return &PdfFont{&std}, nil
+	return &std, nil
 }
 
 // NewStandard14FontMustCompile returns the standard 14 font named `basefont` as a *PdfFont.
 // If `basefont` is one of the 14 Standard14Font values defined above then NewStandard14FontMustCompile
 // is guaranteed to succeed.
-func NewStandard14FontMustCompile(basefont fonts.StdFontName) *PdfFont {
+func NewStandard14FontMustCompile(basefont fonts.StdFontName) PdfFont {
 	font, err := NewStandard14Font(basefont)
 	if err != nil {
 		panic(fmt.Errorf("invalid Standard14Font %#q", basefont))
@@ -135,7 +130,7 @@ func sortedAlphabet(alphabet map[rune]int) []rune {
 
 // NewPdfFontFromPdfObject loads a PdfFont from the dictionary `fontObj`.  If there is a problem an
 // error is returned.
-func NewPdfFontFromPdfObject(fontObj core.PdfObject) (*PdfFont, error) {
+func NewPdfFontFromPdfObject(fontObj core.PdfObject) (PdfFont, error) {
 	return newPdfFontFromPdfObject(fontObj, true)
 }
 
@@ -143,7 +138,7 @@ func NewPdfFontFromPdfObject(fontObj core.PdfObject) (*PdfFont, error) {
 // error is returned.
 // The allowType0 flag indicates whether loading Type0 font should be supported.  This is used to
 // avoid cyclical loading.
-func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont, error) {
+func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (PdfFont, error) {
 	d, base, err := newFontBaseFieldsFromPdfObject(fontObj)
 	if err != nil {
 		// In the case of not yet supported fonts, we attempt to return enough information in the
@@ -155,13 +150,11 @@ func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont,
 				common.Log.Debug("ERROR: While loading simple font: font=%s err=%v", base, err2)
 				return nil, err
 			}
-			return &PdfFont{simplefont}, err
-		} else {
-			return nil, err
+			return simplefont, err
 		}
+		return nil, err
 	}
 
-	var font PdfFontSub
 	switch base.subtype {
 	case "Type0":
 		if !allowType0 {
@@ -173,13 +166,12 @@ func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont,
 			common.Log.Debug("ERROR: While loading Type0 font. font=%s err=%v", base, err)
 			return nil, err
 		}
-		font = type0font
+		return type0font, nil
 	case "Type1", "Type3", "MMType1", "TrueType":
 		var simplefont *pdfFontSimple
 		fnt, builtin := fonts.NewStdFontByName(fonts.StdFontName(base.basefont))
 		if builtin {
 			std := stdFontToSimpleFont(fnt)
-			font = &std
 
 			stdObj := core.TraceToDirectObject(std.ToPdfObject())
 			d14, stdBase, err := newFontBaseFieldsFromPdfObject(stdObj)
@@ -223,27 +215,25 @@ func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont,
 			common.Log.Debug("ERROR: No widths. font=%s", simplefont)
 		}
 		simplefont.builtin = builtin
-		font = simplefont
+		return simplefont, nil
 	case "CIDFontType0":
 		cidfont, err := newPdfCIDFontType0FromPdfObject(d, base)
 		if err != nil {
 			common.Log.Debug("ERROR: While loading cid font type0 font: %v", err)
 			return nil, err
 		}
-		font = cidfont
+		return cidfont, nil
 	case "CIDFontType2":
 		cidfont, err := newPdfCIDFontType2FromPdfObject(d, base)
 		if err != nil {
 			common.Log.Debug("ERROR: While loading cid font type2 font. font=%s err=%v", base, err)
 			return nil, err
 		}
-		font = cidfont
+		return cidfont, nil
 	default:
 		common.Log.Debug("ERROR: Unsupported font type: font=%s", base)
 		return nil, fmt.Errorf("unsupported font type: font=%s", base)
 	}
-
-	return &PdfFont{font}, nil
 }
 
 // charcodeBytesToUnicode converts PDF character codes `data` to a Go unicode string.
@@ -256,7 +246,7 @@ func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont,
 //   "Encodings for TrueType Fonts". Since this process sometimes produces ambiguous results,
 //   conforming writers, instead of using a simple font, shall use a Type 0 font with an Identity-H
 //   encoding and use the glyph indices as character codes, as described following Table 118.
-func charcodeBytesToUnicode(font PdfFontSub, data []byte) (string, int, int) {
+func charcodeBytesToUnicode(font PdfFont, data []byte) (string, int, int) {
 	common.Log.Trace("CharcodeBytesToUnicode: data=[% 02x]=%#q", data, data)
 
 	charcodes := make([]textencoding.CharCode, 0, len(data)+len(data)%2)
@@ -316,7 +306,7 @@ func charcodeBytesToUnicode(font PdfFontSub, data []byte) (string, int, int) {
 }
 
 // bytesToCharcodes converts the bytes in a PDF string to character codes.
-func bytesToCharcodes(font PdfFontSub, data []byte) []textencoding.CharCode {
+func bytesToCharcodes(font PdfFont, data []byte) []textencoding.CharCode {
 	common.Log.Trace("BytesToCharcodes: data=[% 02x]=%#q", data, data)
 	charcodes := make([]textencoding.CharCode, 0, len(data)+len(data)%2)
 	if font.IsCID() {
@@ -345,7 +335,7 @@ func bytesToCharcodes(font PdfFontSub, data []byte) []textencoding.CharCode {
 // How it works:
 //  1) Use the ToUnicode CMap if there is one.
 //  2) Use the underlying font's encoding.
-func charcodesToUnicodeWithStats(font PdfFontSub, charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
+func charcodesToUnicodeWithStats(font PdfFont, charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
 	runes := make([]rune, 0, len(charcodes))
 	numMisses = 0
 	for _, code := range charcodes {
@@ -403,7 +393,7 @@ type fontCommon struct {
 // asPdfObjectDictionary returns `base` as a core.PdfObjectDictionary.
 // It is for use in font ToPdfObject functions.
 // NOTE: The returned dict's "Subtype" field is set to `subtype` if `base` doesn't have a subtype.
-func asPdfObjectDictionary(base PdfFontSub, subtype string) *core.PdfObjectDictionary {
+func asPdfObjectDictionary(base PdfFont, subtype string) *core.PdfObjectDictionary {
 	baseSubtype := base.Subtype()
 	if subtype != "" && baseSubtype != "" && subtype != baseSubtype {
 		common.Log.Debug("ERROR: asPdfObjectDictionary. Overriding subtype to %#q %s", subtype, base)

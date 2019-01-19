@@ -91,8 +91,8 @@ import (
     ....
 */
 
-// pdfFontType0 implements PdfFontSub
-var _ PdfFontSub = (*pdfFontType0)(nil)
+// pdfFontType0 implements PdfFont
+var _ PdfFont = (*pdfFontType0)(nil)
 
 // pdfFontType0 represents a Type0 font in PDF. Used for composite fonts which can encode multiple
 // bytes for complex symbols (e.g. used in Asian languages). Represents the root font whereas the
@@ -105,7 +105,7 @@ type pdfFontType0 struct {
 	encoder  textencoding.TextEncoder
 	Encoding core.PdfObject
 	// TODO(dennwc): type union
-	DescendantFont *PdfFont // Can be either CIDFontType0 or CIDFontType2 font.
+	DescendantFont PdfFont // Can be either CIDFontType0 or CIDFontType2 font.
 }
 
 // pdfFontType0FromSkeleton returns a pdfFontType0 with its common fields initalized.
@@ -239,8 +239,8 @@ func newPdfFontType0FromPdfObject(d *core.PdfObjectDictionary, base *fontCommon)
 	return font, nil
 }
 
-// pdfCIDFontType0 implements PdfFontSub
-var _ PdfFontSub = (*pdfCIDFontType0)(nil)
+// pdfCIDFontType0 implements PdfFont
+var _ PdfFont = (*pdfCIDFontType0)(nil)
 
 // pdfCIDFontType0 represents a CIDFont Type0 font dictionary.
 type pdfCIDFontType0 struct {
@@ -355,8 +355,8 @@ func newPdfCIDFontType0FromPdfObject(d *core.PdfObjectDictionary, base *fontComm
 	return font, nil
 }
 
-// pdfCIDFontType2 implements PdfFontSub
-var _ PdfFontSub = (*pdfCIDFontType2)(nil)
+// pdfCIDFontType2 implements PdfFont
+var _ PdfFont = (*pdfCIDFontType2)(nil)
 
 // pdfCIDFontType2 represents a CIDFont Type2 font dictionary.
 type pdfCIDFontType2 struct {
@@ -588,7 +588,7 @@ func newPdfCIDFontType2FromPdfObject(d *core.PdfObjectDictionary, base *fontComm
 // range of values.
 // It is represented by a Type0 Font with an underlying CIDFontType2 and an Identity-H encoding map.
 // TODO: May be extended in the future to support a larger variety of CMaps and vertical fonts.
-func NewCompositePdfFontFromTTFFile(filePath string) (*PdfFont, error) {
+func NewCompositePdfFontFromTTFFile(filePath string) (PdfFont, error) {
 	// Load the truetype font data.
 	ttfBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -698,18 +698,18 @@ func NewCompositePdfFontFromTTFFile(filePath string) (*PdfFont, error) {
 	cidfont.fontDescriptor = descriptor
 
 	// Make root Type0 font.
-	type0 := pdfFontType0{
+	type0 := &pdfFontType0{
 		fontCommon: fontCommon{
 			subtype:       "Type0",
 			basefont:      ttf.PostScriptName,
 			toUnicodeCmap: ttf.MakeToUnicode(),
 		},
-		DescendantFont: &PdfFont{cidfont},
+		DescendantFont: cidfont,
 		Encoding:       core.MakeName("Identity-H"),
 		encoder:        ttf.NewEncoder(),
 	}
 
-	return &PdfFont{&type0}, nil
+	return type0, nil
 }
 
 func makeCIDWidthArr(runes []rune, widths map[rune]int, gids map[rune]fonts.GID) *core.PdfObjectArray {

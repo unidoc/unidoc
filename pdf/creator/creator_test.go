@@ -499,7 +499,7 @@ func TestParagraphFonts(t *testing.T) {
 
 	helvetica := model.NewStandard14FontMustCompile(fonts.HelveticaName)
 
-	fonts := []*model.PdfFont{roboto, robotoBold, helvetica, roboto, robotoBold, helvetica}
+	fonts := []model.PdfFont{roboto, robotoBold, helvetica, roboto, robotoBold, helvetica}
 	for _, font := range fonts {
 		p := creator.NewParagraph("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt" +
 			"ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut " +
@@ -1172,7 +1172,7 @@ func TestBorderedTable2(t *testing.T) {
 	testWriteAndRender(t, c, "4_table_bordered2.pdf")
 }
 
-func newContent(c *Creator, text string, alignment TextAlignment, font *model.PdfFont, fontSize float64, color Color) *Paragraph {
+func newContent(c *Creator, text string, alignment TextAlignment, font model.PdfFont, fontSize float64, color Color) *Paragraph {
 	p := c.NewParagraph(text)
 	p.SetFontSize(fontSize)
 	p.SetTextAlignment(alignment)

@@ -17,8 +17,8 @@ import (
 	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
 
-// pdfFontSimple implements PdfFontSub
-var _ PdfFontSub = (*pdfFontSimple)(nil)
+// pdfFontSimple implements PdfFont
+var _ PdfFont = (*pdfFontSimple)(nil)
 
 // pdfFontSimple describes a Simple Font
 //
@@ -429,7 +429,7 @@ func (font *pdfFontSimple) ToPdfObject() core.PdfObject {
 // NewPdfFontFromTTFFile loads a TTF font and returns a PdfFont type that can be used in text
 // styling functions.
 // Uses a WinAnsiTextEncoder and loads only character codes 32-255.
-func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
+func NewPdfFontFromTTFFile(filePath string) (PdfFont, error) {
 	const minCode = textencoding.CharCode(32)
 	const maxCode = textencoding.CharCode(255)
 
@@ -536,7 +536,7 @@ func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
 	// Build Font.
 	truefont.fontDescriptor = descriptor
 
-	return &PdfFont{truefont}, nil
+	return truefont, nil
 }
 
 // updateStandard14Font fills the font.charWidths for standard 14 fonts.

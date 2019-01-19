@@ -212,7 +212,7 @@ func genFieldTextAppearance(wa *model.PdfAnnotationWidget, ftxt *model.PdfFieldT
 	// Add DA operands.
 	var fontsize float64
 	var fontname *core.PdfObjectName
-	var font *model.PdfFont
+	var font model.PdfFont
 	autosize := true
 
 	fontsizeDef := height * style.AutoFontSizeFraction
@@ -529,7 +529,7 @@ func genFieldTextCombAppearance(wa *model.PdfAnnotationWidget, ftxt *model.PdfFi
 	// Add DA operands.
 	var fontsize float64
 	var fontname *core.PdfObjectName
-	var font *model.PdfFont
+	var font model.PdfFont
 	autosize := true
 
 	fontsizeDef := height * style.AutoFontSizeFraction
@@ -901,7 +901,7 @@ func makeComboboxTextXObjForm(width, height float64, text string, style Appearan
 	// Add DA operands.
 	var fontsize float64
 	var fontname *core.PdfObjectName
-	var font *model.PdfFont
+	var font model.PdfFont
 	var err error
 	autosize := true
 
@@ -1065,7 +1065,7 @@ func drawAlignmentReticle(cc *contentstream.ContentCreator, style AppearanceStyl
 
 // Apply appearance characteristics from an MK dictionary `mkDict` to appearance `style`.
 // `font` is necessary when the "normal caption" (CA) field is specified (checkboxes).
-func (style *AppearanceStyle) applyAppearanceCharacteristics(mkDict *core.PdfObjectDictionary, bsDict *core.PdfObjectDictionary, font *model.PdfFont) error {
+func (style *AppearanceStyle) applyAppearanceCharacteristics(mkDict *core.PdfObjectDictionary, bsDict *core.PdfObjectDictionary, font model.PdfFont) error {
 	if !style.AllowMK {
 		return nil
 	}

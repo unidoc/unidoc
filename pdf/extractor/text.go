@@ -521,7 +521,7 @@ func (to *textObject) checkOp(op *contentstream.ContentStreamOperation, numParam
 }
 
 // fontStacker is the PDF font stack implementation.
-type fontStacker []*model.PdfFont
+type fontStacker []model.PdfFont
 
 // String returns a string describing the current state of the font stack.
 func (fontStack *fontStacker) String() string {
@@ -537,12 +537,12 @@ func (fontStack *fontStacker) String() string {
 }
 
 // push pushes `font` onto the font stack.
-func (fontStack *fontStacker) push(font *model.PdfFont) {
+func (fontStack *fontStacker) push(font model.PdfFont) {
 	*fontStack = append(*fontStack, font)
 }
 
 // pop pops and returns the element on the top of the font stack if there is one or nil if there isn't.
-func (fontStack *fontStacker) pop() *model.PdfFont {
+func (fontStack *fontStacker) pop() model.PdfFont {
 	if fontStack.empty() {
 		return nil
 	}
@@ -552,7 +552,7 @@ func (fontStack *fontStacker) pop() *model.PdfFont {
 }
 
 // peek returns the element on the top of the font stack if there is one or nil if there isn't.
-func (fontStack *fontStacker) peek() *model.PdfFont {
+func (fontStack *fontStacker) peek() model.PdfFont {
 	if fontStack.empty() {
 		return nil
 	}
@@ -563,7 +563,7 @@ func (fontStack *fontStacker) peek() *model.PdfFont {
 //  idx = 0: bottom of font stack
 //  idx = len(fontstack) - 1: top of font stack
 //  idx = -n is same as dx = len(fontstack) - n, so fontstack.get(-1) is same as fontstack.peek()
-func (fontStack *fontStacker) get(idx int) *model.PdfFont {
+func (fontStack *fontStacker) get(idx int) model.PdfFont {
 	if idx < 0 {
 		idx += fontStack.size()
 	}
@@ -590,14 +590,14 @@ func (fontStack *fontStacker) size() int {
 
 // textState represents the text state.
 type textState struct {
-	tc    float64        // Character spacing. Unscaled text space units.
-	tw    float64        // Word spacing. Unscaled text space units.
-	th    float64        // Horizontal scaling.
-	tl    float64        // Leading. Unscaled text space units. Used by TD,T*,'," see Table 108.
-	tfs   float64        // Text font size.
-	tmode RenderMode     // Text rendering mode.
-	trise float64        // Text rise. Unscaled text space units. Set by Ts.
-	tfont *model.PdfFont // Text font.
+	tc    float64       // Character spacing. Unscaled text space units.
+	tw    float64       // Word spacing. Unscaled text space units.
+	th    float64       // Horizontal scaling.
+	tl    float64       // Leading. Unscaled text space units. Used by TD,T*,'," see Table 108.
+	tfs   float64       // Text font size.
+	tmode RenderMode    // Text rendering mode.
+	trise float64       // Text rise. Unscaled text space units. Set by Ts.
+	tfont model.PdfFont // Text font.
 	// For debugging
 	numChars  int
 	numMisses int
@@ -1213,7 +1213,7 @@ var diacritics = map[rune]string{
 
 // getCurrentFont returns the font on top of the font stack, or DefaultFont if the font stack is
 // empty.
-func (to *textObject) getCurrentFont() *model.PdfFont {
+func (to *textObject) getCurrentFont() model.PdfFont {
 	if to.fontStack.empty() {
 		common.Log.Debug("ERROR: No font defined. Using default.")
 		return model.DefaultFont()
@@ -1223,7 +1223,7 @@ func (to *textObject) getCurrentFont() *model.PdfFont {
 
 // getFont returns the font named `name` if it exists in the page's resources or an error if it
 // doesn't. It caches the returned fonts.
-func (to *textObject) getFont(name string) (*model.PdfFont, error) {
+func (to *textObject) getFont(name string) (model.PdfFont, error) {
 	if to.e.fontCache != nil {
 		to.e.accessCount++
 		entry, ok := to.e.fontCache[name]
@@ -1261,8 +1261,8 @@ func (to *textObject) getFont(name string) (*model.PdfFont, error) {
 
 // fontEntry is a entry in the font cache.
 type fontEntry struct {
-	font   *model.PdfFont // The font being cached.
-	access int64          // Last access. Used to determine LRU cache victims.
+	font   model.PdfFont // The font being cached.
+	access int64         // Last access. Used to determine LRU cache victims.
 }
 
 // maxFontCache is the maximum number of PdfFont's in fontCache.
@@ -1270,7 +1270,7 @@ const maxFontCache = 10
 
 // getFontDirect returns the font named `name` if it exists in the page's resources or an error if
 // it doesn't. Accesses page resources directly (not cached).
-func (to *textObject) getFontDirect(name string) (*model.PdfFont, error) {
+func (to *textObject) getFontDirect(name string) (model.PdfFont, error) {
 	fontObj, err := to.getFontDict(name)
 	if err != nil {
 		return nil, err
