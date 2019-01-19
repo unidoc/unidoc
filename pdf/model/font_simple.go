@@ -189,6 +189,9 @@ func (font pdfFontSimple) GetCharMetrics(code textencoding.CharCode) (fonts.Char
 		// PdfBox says this is what Acrobat does. Their reference is PDFBOX-2334.
 		return fonts.CharMetrics{Wx: 250}, true
 	}
+	if d := font.fontDescriptor; d != nil {
+		return fonts.CharMetrics{Wx: d.missingWidth}, true
+	}
 	return fonts.CharMetrics{}, false
 }
 
