@@ -127,9 +127,9 @@ func TestNewStandard14Font(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", in, err)
 		}
-		if font.Subtype() != expect.subtype || font.BaseFont() != expect.basefont {
+		if font.FullSubtype() != expect.subtype || font.BaseFont() != expect.basefont {
 			t.Fatalf("%s: expected BaseFont=%s SubType=%s, but got BaseFont=%s SubType=%s",
-				in, expect.basefont, expect.subtype, font.BaseFont(), font.Subtype())
+				in, expect.basefont, expect.subtype, font.BaseFont(), font.FullSubtype())
 		}
 
 		metrics, ok := font.GetRuneMetrics(' ')
@@ -284,7 +284,7 @@ func TestFontDescriptor(t *testing.T) {
 		t.Run(string(fontName), func(t *testing.T) {
 			font := model.NewStandard14FontMustCompile(fontName)
 
-			descriptor := font.FontDescriptor()
+			descriptor := font.GetFontDescriptor()
 			if descriptor == nil {
 				t.Fatalf("%#q: No descriptor.", fontName)
 			}

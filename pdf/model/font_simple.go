@@ -17,8 +17,8 @@ import (
 	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
 
-// pdfFontSimple implements pdfFont
-var _ pdfFont = (*pdfFontSimple)(nil)
+// pdfFontSimple implements PdfFontSub
+var _ PdfFontSub = (*pdfFontSimple)(nil)
 
 // pdfFontSimple describes a Simple Font
 //
@@ -75,6 +75,10 @@ func (font *pdfFontSimple) BaseFont() string {
 }
 
 func (font *pdfFontSimple) Subtype() string {
+	return font.subtype
+}
+
+func (font *pdfFontSimple) FullSubtype() string {
 	return font.subtype
 }
 
@@ -506,11 +510,7 @@ func NewPdfFontFromTTFFile(filePath string) (*PdfFont, error) {
 	// Build Font.
 	truefont.fontDescriptor = descriptor
 
-	font := &PdfFont{
-		context: truefont,
-	}
-
-	return font, nil
+	return &PdfFont{truefont}, nil
 }
 
 // updateStandard14Font fills the font.charWidths for standard 14 fonts.

@@ -293,7 +293,7 @@ func (p *Paragraph) wrapText() error {
 		metrics, found := p.textFont.GetRuneMetrics(r)
 		if !found {
 			common.Log.Debug("ERROR: Rune char metrics not found! rune=0x%04x=%c font=%s %#q",
-				r, r, p.textFont.BaseFont(), p.textFont.Subtype())
+				r, r, p.textFont.BaseFont(), p.textFont.FullSubtype())
 			common.Log.Trace("Font: %#v", p.textFont)
 			common.Log.Trace("Encoder: %#v", p.textFont.Encoder())
 			return errors.New("glyph char metrics missing")
@@ -468,7 +468,7 @@ func drawParagraphOnBlock(blk *Block, p *Paragraph, ctx DrawContext) (DrawContex
 			if !found {
 				common.Log.Debug("Unsupported rune i=%d rune=0x%04x=%c in font %s %s",
 					i, r, r,
-					p.textFont.BaseFont(), p.textFont.Subtype())
+					p.textFont.BaseFont(), p.textFont.FullSubtype())
 				return ctx, errors.New("unsupported text glyph")
 			}
 

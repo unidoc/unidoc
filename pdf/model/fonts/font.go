@@ -15,8 +15,10 @@ import (
 // Font represents a font which is a series of glyphs. Character codes from PDF strings can be
 // mapped to and from glyphs.  Each glyph has metrics.
 type Font interface {
+	// Encoder returns the font's text encoder.
 	Encoder() textencoding.TextEncoder
 	GetRuneMetrics(r rune) (CharMetrics, bool)
+	// ToPdfObject converts the PdfFont object to its PDF representation.
 	ToPdfObject() core.PdfObject
 }
 

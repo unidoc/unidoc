@@ -265,10 +265,7 @@ func genFieldTextAppearance(wa *model.PdfAnnotationWidget, ftxt *model.PdfFieldT
 		resources.SetFontByName(*fontname, fontobj)
 	}
 	encoder := font.Encoder()
-	fdescriptor, err := font.GetFontDescriptor()
-	if err != nil {
-		common.Log.Debug("Error: Unable to get font descriptor")
-	}
+	fdescriptor := font.GetFontDescriptor()
 
 	var text string
 	if str, ok := core.GetString(ftxt.V); ok {
@@ -618,10 +615,8 @@ func genFieldTextCombAppearance(wa *model.PdfAnnotationWidget, ftxt *model.PdfFi
 		maxGlyphWy = 1000
 	}
 
-	fdescriptor, err := font.GetFontDescriptor()
-	if err != nil {
-		common.Log.Debug("Error: Unable to get font descriptor")
-	}
+	fdescriptor := font.GetFontDescriptor()
+
 	var fcapheight float64
 	if fdescriptor != nil {
 		fcapheight, err = fdescriptor.GetCapHeight()
