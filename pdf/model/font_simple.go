@@ -101,6 +101,21 @@ func (font *pdfFontSimple) BuiltinDescriptor() bool {
 	return font.builtin
 }
 
+func (font *pdfFontSimple) BytesToCharcodes(data []byte) []textencoding.CharCode {
+	// TODO(dennwc): resolve branches and inline
+	return bytesToCharcodes(font, data)
+}
+
+func (font *pdfFontSimple) CharcodeBytesToUnicode(data []byte) (string, int, int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodeBytesToUnicode(font, data)
+}
+
+func (font *pdfFontSimple) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodesToUnicodeWithStats(font, charcodes)
+}
+
 // Encoder returns the font's text encoder.
 func (font *pdfFontSimple) Encoder() textencoding.TextEncoder {
 	// TODO(peterwilliams97): Need to make font.Encoder()==nil test work for

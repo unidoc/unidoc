@@ -143,6 +143,21 @@ func (font *pdfFontType0) BuiltinDescriptor() bool {
 	return false
 }
 
+func (font *pdfFontType0) BytesToCharcodes(data []byte) []textencoding.CharCode {
+	// TODO(dennwc): resolve branches and inline
+	return bytesToCharcodes(font, data)
+}
+
+func (font *pdfFontType0) CharcodeBytesToUnicode(data []byte) (string, int, int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodeBytesToUnicode(font, data)
+}
+
+func (font *pdfFontType0) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodesToUnicodeWithStats(font, charcodes)
+}
+
 // GetRuneMetrics returns the character metrics for the specified rune.
 // A bool flag is returned to indicate whether or not the entry was found.
 func (font pdfFontType0) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
@@ -280,6 +295,21 @@ func (font pdfCIDFontType0) Encoder() textencoding.TextEncoder {
 	return font.encoder
 }
 
+func (font *pdfCIDFontType0) BytesToCharcodes(data []byte) []textencoding.CharCode {
+	// TODO(dennwc): resolve branches and inline
+	return bytesToCharcodes(font, data)
+}
+
+func (font *pdfCIDFontType0) CharcodeBytesToUnicode(data []byte) (string, int, int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodeBytesToUnicode(font, data)
+}
+
+func (font *pdfCIDFontType0) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodesToUnicodeWithStats(font, charcodes)
+}
+
 // GetRuneMetrics returns the character metrics for the specified rune.
 // A bool flag is returned to indicate whether or not the entry was found.
 func (font pdfCIDFontType0) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
@@ -381,6 +411,21 @@ func (font *pdfCIDFontType2) GetFontDescriptor() *PdfFontDescriptor {
 
 func (font *pdfCIDFontType2) BuiltinDescriptor() bool {
 	return false
+}
+
+func (font *pdfCIDFontType2) BytesToCharcodes(data []byte) []textencoding.CharCode {
+	// TODO(dennwc): resolve branches and inline
+	return bytesToCharcodes(font, data)
+}
+
+func (font *pdfCIDFontType2) CharcodeBytesToUnicode(data []byte) (string, int, int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodeBytesToUnicode(font, data)
+}
+
+func (font *pdfCIDFontType2) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
+	// TODO(dennwc): resolve branches and inline
+	return charcodesToUnicodeWithStats(font, charcodes)
 }
 
 // Encoder returns the font's text encoder.

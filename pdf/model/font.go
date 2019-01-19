@@ -37,6 +37,13 @@ type PdfFontSub interface {
 	ToUnicode() core.PdfObject
 	ToUnicodeCMap() *cmap.CMap
 	GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool)
+
+	// BytesToCharcodes converts the bytes in a PDF string to character codes.
+	BytesToCharcodes(data []byte) []textencoding.CharCode
+	// CharcodeBytesToUnicode converts PDF character codes `data` to a Go unicode string.
+	CharcodeBytesToUnicode(data []byte) (string, int, int)
+	// CharcodesToUnicodeWithStats converts the character codes `charcodes` to a slice of runes.
+	CharcodesToUnicodeWithStats(charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int)
 }
 
 // PdfFont represents an underlying font structure which can be of type:
@@ -223,7 +230,7 @@ func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont,
 	return &PdfFont{font}, nil
 }
 
-// CharcodeBytesToUnicode converts PDF character codes `data` to a Go unicode string.
+// charcodeBytesToUnicode converts PDF character codes `data` to a Go unicode string.
 //
 // 9.10 Extraction of Text Content (page 292)
 // The process of finding glyph descriptions in OpenType fonts by a conforming reader shall be the following:
@@ -233,7 +240,7 @@ func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont,
 //   "Encodings for TrueType Fonts". Since this process sometimes produces ambiguous results,
 //   conforming writers, instead of using a simple font, shall use a Type 0 font with an Identity-H
 //   encoding and use the glyph indices as character codes, as described following Table 118.
-func (font *PdfFont) CharcodeBytesToUnicode(data []byte) (string, int, int) {
+func charcodeBytesToUnicode(font PdfFontSub, data []byte) (string, int, int) {
 	common.Log.Trace("CharcodeBytesToUnicode: data=[% 02x]=%#q", data, data)
 
 	charcodes := make([]textencoding.CharCode, 0, len(data)+len(data)%2)
@@ -292,8 +299,8 @@ func (font *PdfFont) CharcodeBytesToUnicode(data []byte) (string, int, int) {
 	return out, len([]rune(out)), numMisses
 }
 
-// BytesToCharcodes converts the bytes in a PDF string to character codes.
-func (font *PdfFont) BytesToCharcodes(data []byte) []textencoding.CharCode {
+// bytesToCharcodes converts the bytes in a PDF string to character codes.
+func bytesToCharcodes(font PdfFontSub, data []byte) []textencoding.CharCode {
 	common.Log.Trace("BytesToCharcodes: data=[% 02x]=%#q", data, data)
 	charcodes := make([]textencoding.CharCode, 0, len(data)+len(data)%2)
 	if font.IsCID() {
@@ -316,18 +323,13 @@ func (font *PdfFont) BytesToCharcodes(data []byte) []textencoding.CharCode {
 	return charcodes
 }
 
-// CharcodesToUnicode converts the character codes `charcodes` to a slice of runes.
+// charcodesToUnicodeWithStats converts the character codes `charcodes` to a slice of runes.
+// It returns statistical information about hits and misses from the reverse mapping process.
+//
 // How it works:
 //  1) Use the ToUnicode CMap if there is one.
 //  2) Use the underlying font's encoding.
-func (font *PdfFont) CharcodesToUnicode(charcodes []textencoding.CharCode) []rune {
-	strlist, _, _ := font.CharcodesToUnicodeWithStats(charcodes)
-	return strlist
-}
-
-// CharcodesToUnicodeWithStats is identical to CharcodesToUnicode except returns more statistical
-// information about hits and misses from the reverse mapping process.
-func (font *PdfFont) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
+func charcodesToUnicodeWithStats(font PdfFontSub, charcodes []textencoding.CharCode) (runelist []rune, numHits, numMisses int) {
 	runes := make([]rune, 0, len(charcodes))
 	numMisses = 0
 	for _, code := range charcodes {
