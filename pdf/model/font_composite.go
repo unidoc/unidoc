@@ -91,6 +91,12 @@ import (
     ....
 */
 
+// pdfCIDFont can be either CIDFontType0 or CIDFontType2 font.
+type pdfCIDFont interface {
+	PdfFont
+	isCID()
+}
+
 // pdfFontType0 implements PdfFont
 var _ PdfFont = (*pdfFontType0)(nil)
 
@@ -102,10 +108,9 @@ type pdfFontType0 struct {
 	container *core.PdfIndirectObject
 
 	// These fields are specific to Type 0 fonts.
-	encoder  textencoding.TextEncoder
-	Encoding core.PdfObject
-	// TODO(dennwc): type union
-	DescendantFont PdfFont // Can be either CIDFontType0 or CIDFontType2 font.
+	encoder        textencoding.TextEncoder
+	encoding       core.PdfObject
+	descendantFont pdfCIDFont
 }
 
 // pdfFontType0FromSkeleton returns a pdfFontType0 with its common fields initalized.
@@ -124,7 +129,7 @@ func (font *pdfFontType0) Subtype() string {
 }
 
 func (font *pdfFontType0) FullSubtype() string {
-	return font.subtype + ":" + font.DescendantFont.FullSubtype()
+	return font.subtype + ":" + font.descendantFont.FullSubtype()
 }
 
 func (font *pdfFontType0) ToUnicode() core.PdfObject {
@@ -161,20 +166,20 @@ func (font *pdfFontType0) CharcodesToUnicodeWithStats(charcodes []textencoding.C
 // GetRuneMetrics returns the character metrics for the specified rune.
 // A bool flag is returned to indicate whether or not the entry was found.
 func (font pdfFontType0) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
-	if font.DescendantFont == nil {
+	if font.descendantFont == nil {
 		common.Log.Debug("ERROR: No descendant. font=%s", font)
 		return fonts.CharMetrics{}, false
 	}
-	return font.DescendantFont.GetRuneMetrics(r)
+	return font.descendantFont.GetRuneMetrics(r)
 }
 
 // GetCharMetrics returns the char metrics for character code `code`.
 func (font pdfFontType0) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
-	if font.DescendantFont == nil {
+	if font.descendantFont == nil {
 		common.Log.Debug("ERROR: No descendant. font=%s", font)
 		return fonts.CharMetrics{}, false
 	}
-	return font.DescendantFont.GetCharMetrics(code)
+	return font.descendantFont.GetCharMetrics(code)
 }
 
 // Encoder returns the font's text encoder.
@@ -191,15 +196,15 @@ func (font *pdfFontType0) ToPdfObject() core.PdfObject {
 
 	font.container.PdfObject = d
 
-	if font.Encoding != nil {
-		d.Set("Encoding", font.Encoding)
+	if font.encoding != nil {
+		d.Set("Encoding", font.encoding)
 	} else if font.encoder != nil {
 		d.Set("Encoding", font.encoder.ToPdfObject())
 	}
 
-	if font.DescendantFont != nil {
+	if font.descendantFont != nil {
 		// Shall be 1 element array.
-		d.Set("DescendantFonts", core.MakeArray(font.DescendantFont.ToPdfObject()))
+		d.Set("DescendantFonts", core.MakeArray(font.descendantFont.ToPdfObject()))
 	}
 
 	return font.container
@@ -219,14 +224,21 @@ func newPdfFontType0FromPdfObject(d *core.PdfObjectDictionary, base *fontCommon)
 		common.Log.Debug("ERROR: Array length != 1 (%d)", arr.Len())
 		return nil, core.ErrRangeError
 	}
+	// TODO(dennwc): newPdfCIDFontFromPdfObject?
 	df, err := newPdfFontFromPdfObject(arr.Get(0), false)
 	if err != nil {
 		common.Log.Debug("ERROR: Failed loading descendant font: err=%v %s", err, base)
 		return nil, err
 	}
+	cid, ok := df.(pdfCIDFont)
+	if !ok {
+		err = fmt.Errorf("expected CID font, got: %T", df)
+		common.Log.Debug("ERROR: Invalid DescendantFont: %v", err)
+		return nil, err
+	}
 
 	font := pdfFontType0FromSkeleton(base)
-	font.DescendantFont = df
+	font.descendantFont = cid
 
 	encoderName, ok := core.GetNameVal(d.Get("Encoding"))
 	if ok {
@@ -240,7 +252,7 @@ func newPdfFontType0FromPdfObject(d *core.PdfObjectDictionary, base *fontCommon)
 }
 
 // pdfCIDFontType0 implements PdfFont
-var _ PdfFont = (*pdfCIDFontType0)(nil)
+var _ pdfCIDFont = (*pdfCIDFontType0)(nil)
 
 // pdfCIDFontType0 represents a CIDFont Type0 font dictionary.
 type pdfCIDFontType0 struct {
@@ -261,6 +273,8 @@ func pdfCIDFontType0FromSkeleton(base *fontCommon) *pdfCIDFontType0 {
 		fontCommon: *base,
 	}
 }
+
+func (*pdfCIDFontType0) isCID() {}
 
 func (font *pdfCIDFontType0) BaseFont() string {
 	return font.basefont
@@ -356,7 +370,7 @@ func newPdfCIDFontType0FromPdfObject(d *core.PdfObjectDictionary, base *fontComm
 }
 
 // pdfCIDFontType2 implements PdfFont
-var _ PdfFont = (*pdfCIDFontType2)(nil)
+var _ pdfCIDFont = (*pdfCIDFontType2)(nil)
 
 // pdfCIDFontType2 represents a CIDFont Type2 font dictionary.
 type pdfCIDFontType2 struct {
@@ -388,6 +402,8 @@ func pdfCIDFontType2FromSkeleton(base *fontCommon) *pdfCIDFontType2 {
 		fontCommon: *base,
 	}
 }
+
+func (*pdfCIDFontType2) isCID() {}
 
 func (font *pdfCIDFontType2) BaseFont() string {
 	return font.basefont
@@ -704,8 +720,8 @@ func NewCompositePdfFontFromTTFFile(filePath string) (PdfFont, error) {
 			basefont:      ttf.PostScriptName,
 			toUnicodeCmap: ttf.MakeToUnicode(),
 		},
-		DescendantFont: cidfont,
-		Encoding:       core.MakeName("Identity-H"),
+		descendantFont: cidfont,
+		encoding:       core.MakeName("Identity-H"),
 		encoder:        ttf.NewEncoder(),
 	}
 
