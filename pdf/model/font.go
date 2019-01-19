@@ -21,12 +21,15 @@ import (
 // pdfFont is an internal interface for fonts that can be stored in PDF documents.
 type pdfFont interface {
 	fonts.Font
-	// getFontDescriptor returns the font descriptor of the font.
-	getFontDescriptor() *PdfFontDescriptor
-	// baseFields returns fields that are common for PDF fonts.
-	baseFields() *fontCommon
-
+	// GetFontDescriptor returns the font descriptor of the font.
+	GetFontDescriptor() *PdfFontDescriptor
+	BuiltinDescriptor() bool
+	BaseFont() string
+	Subtype() string
+	ToUnicode() core.PdfObject
+	ToUnicodeCMap() *cmap.CMap
 	GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool)
+	IsCID() bool
 }
 
 // PdfFont represents an underlying font structure which can be of type:
@@ -40,7 +43,7 @@ type PdfFont struct {
 
 // GetFontDescriptor returns the font descriptor for `font`.
 func (font PdfFont) GetFontDescriptor() (*PdfFontDescriptor, error) {
-	return font.context.getFontDescriptor(), nil
+	return font.context.GetFontDescriptor(), nil
 }
 
 // String returns a string that describes `font`.
@@ -49,18 +52,19 @@ func (font *PdfFont) String() string {
 	if font.context.Encoder() != nil {
 		enc = font.context.Encoder().String()
 	}
-	return fmt.Sprintf("FONT{%T %s %s}", font.context, font.baseFields().coreString(), enc)
+	return fmt.Sprintf("FONT{%T %s %s}", font.context, font.context, enc)
 }
 
 // BaseFont returns the font's "BaseFont" field.
 func (font *PdfFont) BaseFont() string {
-	return font.baseFields().basefont
+	return font.context.BaseFont()
 }
 
 // Subtype returns the font's "Subtype" field.
 func (font *PdfFont) Subtype() string {
-	subtype := font.baseFields().subtype
+	subtype := font.context.Subtype()
 	if t, ok := font.context.(*pdfFontType0); ok {
+		// TODO(dennwc): should be in the implementation of that method
 		subtype = subtype + ":" + t.DescendantFont.Subtype()
 	}
 	return subtype
@@ -68,28 +72,25 @@ func (font *PdfFont) Subtype() string {
 
 // IsCID returns true if the underlying font is CID.
 func (font *PdfFont) IsCID() bool {
-	return font.baseFields().isCIDFont()
+	return font.context.IsCID()
 }
 
 // FontDescriptor returns font's PdfFontDescriptor. This may be a builtin descriptor for standard 14
 // fonts but must be an explicit descriptor for other fonts.
 func (font *PdfFont) FontDescriptor() *PdfFontDescriptor {
-	if font.baseFields().fontDescriptor != nil {
-		return font.baseFields().fontDescriptor
-	}
-	if d := font.context.getFontDescriptor(); d != nil {
+	if d := font.context.GetFontDescriptor(); d != nil {
 		return d
 	}
-	common.Log.Error("All fonts have a Descriptor. font=%s", font)
+	common.Log.Error("All fonts should have a Descriptor. font=%s", font)
 	return nil
 }
 
 // ToUnicode returns the name of the font's "ToUnicode" field if there is one, or "" if there isn't.
 func (font *PdfFont) ToUnicode() string {
-	if font.baseFields().toUnicodeCmap == nil {
-		return ""
+	if m := font.context.ToUnicodeCMap(); m != nil {
+		return m.Name()
 	}
-	return font.baseFields().toUnicodeCmap.Name()
+	return ""
 }
 
 // DefaultFont returns the default font, which is currently the built in Helvetica.
@@ -243,6 +244,7 @@ func newPdfFontFromPdfObject(fontObj core.PdfObject, allowType0 bool) (*PdfFont,
 		if len(simplefont.charWidths) == 0 {
 			common.Log.Debug("ERROR: No widths. font=%s", simplefont)
 		}
+		simplefont.builtin = builtin
 		font.context = simplefont
 	case "CIDFontType0":
 		cidfont, err := newPdfCIDFontType0FromPdfObject(d, base)
@@ -280,7 +282,7 @@ func (font *PdfFont) CharcodeBytesToUnicode(data []byte) (string, int, int) {
 	common.Log.Trace("CharcodeBytesToUnicode: data=[% 02x]=%#q", data, data)
 
 	charcodes := make([]textencoding.CharCode, 0, len(data)+len(data)%2)
-	if font.baseFields().isCIDFont() {
+	if font.IsCID() {
 		if len(data) == 1 {
 			data = []byte{0, data[0]}
 		}
@@ -301,8 +303,8 @@ func (font *PdfFont) CharcodeBytesToUnicode(data []byte) (string, int, int) {
 	charstrings := make([]string, 0, len(charcodes))
 	numMisses := 0
 	for _, code := range charcodes {
-		if font.baseFields().toUnicodeCmap != nil {
-			r, ok := font.baseFields().toUnicodeCmap.CharcodeToUnicode(cmap.CharCode(code))
+		if m := font.context.ToUnicodeCMap(); m != nil {
+			r, ok := m.CharcodeToUnicode(cmap.CharCode(code))
 			if ok {
 				charstrings = append(charstrings, string(r))
 				continue
@@ -318,7 +320,7 @@ func (font *PdfFont) CharcodeBytesToUnicode(data []byte) (string, int, int) {
 
 			common.Log.Debug("ERROR: No rune. code=0x%04x data=[% 02x]=%#q charcodes=[% 04x] CID=%t\n"+
 				"\tfont=%s\n\tencoding=%s",
-				code, data, data, charcodes, font.baseFields().isCIDFont(), font, encoder)
+				code, data, data, charcodes, font.IsCID(), font, encoder)
 			numMisses++
 			charstrings = append(charstrings, string(cmap.MissingCodeRune))
 		}
@@ -339,7 +341,7 @@ func (font *PdfFont) CharcodeBytesToUnicode(data []byte) (string, int, int) {
 func (font *PdfFont) BytesToCharcodes(data []byte) []textencoding.CharCode {
 	common.Log.Trace("BytesToCharcodes: data=[% 02x]=%#q", data, data)
 	charcodes := make([]textencoding.CharCode, 0, len(data)+len(data)%2)
-	if font.baseFields().isCIDFont() {
+	if font.IsCID() {
 		if len(data) == 1 {
 			data = []byte{0, data[0]}
 		}
@@ -374,8 +376,8 @@ func (font *PdfFont) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCo
 	runes := make([]rune, 0, len(charcodes))
 	numMisses = 0
 	for _, code := range charcodes {
-		if font.baseFields().toUnicodeCmap != nil {
-			r, ok := font.baseFields().toUnicodeCmap.CharcodeToUnicode(cmap.CharCode(code))
+		if m := font.context.ToUnicodeCMap(); m != nil {
+			r, ok := m.CharcodeToUnicode(cmap.CharCode(code))
 			if ok {
 				runes = append(runes, r)
 				continue
@@ -392,7 +394,7 @@ func (font *PdfFont) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCo
 		}
 		common.Log.Debug("ERROR: No rune. code=0x%04x charcodes=[% 04x] CID=%t\n"+
 			"\tfont=%s\n\tencoding=%s",
-			code, charcodes, font.baseFields().isCIDFont(), font, encoder)
+			code, charcodes, font.IsCID(), font, encoder)
 		numMisses++
 		runes = append(runes, cmap.MissingCodeRune)
 	}
@@ -509,15 +511,6 @@ func (font PdfFont) actualFont() pdfFont {
 	return font.context
 }
 
-// baseFields returns the fields of `font`.context that are common to all PDF fonts.
-func (font *PdfFont) baseFields() *fontCommon {
-	if font.context == nil {
-		common.Log.Debug("ERROR: baseFields. context is nil.")
-		return nil
-	}
-	return font.context.baseFields()
-}
-
 // fontCommon represents the fields that are common to all PDF fonts.
 type fontCommon struct {
 	// All fonts have these fields.
@@ -539,28 +532,29 @@ type fontCommon struct {
 // asPdfObjectDictionary returns `base` as a core.PdfObjectDictionary.
 // It is for use in font ToPdfObject functions.
 // NOTE: The returned dict's "Subtype" field is set to `subtype` if `base` doesn't have a subtype.
-func (base fontCommon) asPdfObjectDictionary(subtype string) *core.PdfObjectDictionary {
-
-	if subtype != "" && base.subtype != "" && subtype != base.subtype {
+func asPdfObjectDictionary(base pdfFont, subtype string) *core.PdfObjectDictionary {
+	baseSubtype := base.Subtype()
+	if subtype != "" && baseSubtype != "" && subtype != baseSubtype {
 		common.Log.Debug("ERROR: asPdfObjectDictionary. Overriding subtype to %#q %s", subtype, base)
-	} else if subtype == "" && base.subtype == "" {
+	} else if subtype == "" && baseSubtype == "" {
 		common.Log.Debug("ERROR: asPdfObjectDictionary no subtype. font=%s", base)
-	} else if base.subtype == "" {
-		base.subtype = subtype
+	} else if baseSubtype == "" {
+		baseSubtype = subtype
 	}
 
 	d := core.MakeDict()
 	d.Set("Type", core.MakeName("Font"))
-	d.Set("BaseFont", core.MakeName(base.basefont))
-	d.Set("Subtype", core.MakeName(base.subtype))
+	d.Set("BaseFont", core.MakeName(base.BaseFont()))
+	d.Set("Subtype", core.MakeName(baseSubtype))
 
-	if base.fontDescriptor != nil {
-		d.Set("FontDescriptor", base.fontDescriptor.ToPdfObject())
+	if desc := base.GetFontDescriptor(); desc != nil && !base.BuiltinDescriptor() {
+		d.Set("FontDescriptor", desc.ToPdfObject())
 	}
-	if base.toUnicode != nil {
-		d.Set("ToUnicode", base.toUnicode)
-	} else if base.toUnicodeCmap != nil {
-		data := base.toUnicodeCmap.Bytes()
+	if uni := base.ToUnicode(); uni != nil {
+		d.Set("ToUnicode", uni)
+	} else if uni := base.ToUnicodeCMap(); uni != nil {
+		// TODO(dennwc): should be in the implementation of ToUnicode
+		data := uni.Bytes()
 		o, err := core.MakeStream(data, nil)
 		if err != nil {
 			common.Log.Debug("MakeStream failed. err=%v", err)
@@ -594,8 +588,8 @@ func (base fontCommon) fontFlags() int {
 	return base.fontDescriptor.flags
 }
 
-// isCIDFont returns true if `base` is a CID font.
-func (base fontCommon) isCIDFont() bool {
+// IsCID returns true if `base` is a CID font.
+func (base fontCommon) IsCID() bool {
 	if base.subtype == "" {
 		common.Log.Debug("ERROR: isCIDFont. context is nil. font=%s", base)
 	}
@@ -672,7 +666,7 @@ func newFontBaseFieldsFromPdfObject(fontObj core.PdfObject) (*core.PdfObjectDict
 	toUnicode := d.Get("ToUnicode")
 	if toUnicode != nil {
 		font.toUnicode = core.TraceToDirectObject(toUnicode)
-		codemap, err := toUnicodeToCmap(font.toUnicode, font)
+		codemap, err := toUnicodeToCmap(font.toUnicode, font.IsCID())
 		if err != nil {
 			return d, font, err
 		}
@@ -683,7 +677,7 @@ func newFontBaseFieldsFromPdfObject(fontObj core.PdfObject) (*core.PdfObjectDict
 }
 
 // toUnicodeToCmap returns a CMap of `toUnicode` if it exists.
-func toUnicodeToCmap(toUnicode core.PdfObject, font *fontCommon) (*cmap.CMap, error) {
+func toUnicodeToCmap(toUnicode core.PdfObject, isCID bool) (*cmap.CMap, error) {
 	toUnicodeStream, ok := core.GetStream(toUnicode)
 	if !ok {
 		common.Log.Debug("ERROR: toUnicodeToCmap: Not a stream (%T)", toUnicode)
@@ -694,7 +688,7 @@ func toUnicodeToCmap(toUnicode core.PdfObject, font *fontCommon) (*cmap.CMap, er
 		return nil, err
 	}
 
-	cm, err := cmap.LoadCmapFromData(data, !font.isCIDFont())
+	cm, err := cmap.LoadCmapFromData(data, !isCID)
 	if err != nil {
 		// Show the object number of the bad cmap to help with debugging.
 		common.Log.Debug("ERROR: ObjectNumber=%d err=%v", toUnicodeStream.ObjectNumber, err)

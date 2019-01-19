@@ -12,6 +12,8 @@ import (
 	"io/ioutil"
 	"sort"
 
+	"github.com/unidoc/unidoc/pdf/internal/cmap"
+
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/core"
 	"github.com/unidoc/unidoc/pdf/internal/textencoding"
@@ -112,13 +114,28 @@ func pdfFontType0FromSkeleton(base *fontCommon) *pdfFontType0 {
 	}
 }
 
-// baseFields returns the fields of `font` that are common to all PDF fonts.
-func (font *pdfFontType0) baseFields() *fontCommon {
-	return &font.fontCommon
+func (font *pdfFontType0) BaseFont() string {
+	return font.basefont
 }
 
-func (font *pdfFontType0) getFontDescriptor() *PdfFontDescriptor {
+func (font *pdfFontType0) Subtype() string {
+	return font.subtype
+}
+
+func (font *pdfFontType0) ToUnicode() core.PdfObject {
+	return font.toUnicode
+}
+
+func (font *pdfFontType0) ToUnicodeCMap() *cmap.CMap {
+	return font.toUnicodeCmap
+}
+
+func (font *pdfFontType0) GetFontDescriptor() *PdfFontDescriptor {
 	return font.fontDescriptor
+}
+
+func (font *pdfFontType0) BuiltinDescriptor() bool {
+	return false
 }
 
 // GetRuneMetrics returns the character metrics for the specified rune.
@@ -150,7 +167,7 @@ func (font *pdfFontType0) ToPdfObject() core.PdfObject {
 	if font.container == nil {
 		font.container = &core.PdfIndirectObject{}
 	}
-	d := font.baseFields().asPdfObjectDictionary("Type0")
+	d := asPdfObjectDictionary(font, "Type0")
 
 	font.container.PdfObject = d
 
@@ -225,13 +242,28 @@ func pdfCIDFontType0FromSkeleton(base *fontCommon) *pdfCIDFontType0 {
 	}
 }
 
-// baseFields returns the fields of `font` that are common to all PDF fonts.
-func (font *pdfCIDFontType0) baseFields() *fontCommon {
-	return &font.fontCommon
+func (font *pdfCIDFontType0) BaseFont() string {
+	return font.basefont
 }
 
-func (font *pdfCIDFontType0) getFontDescriptor() *PdfFontDescriptor {
+func (font *pdfCIDFontType0) Subtype() string {
+	return font.subtype
+}
+
+func (font *pdfCIDFontType0) ToUnicode() core.PdfObject {
+	return font.toUnicode
+}
+
+func (font *pdfCIDFontType0) ToUnicodeCMap() *cmap.CMap {
+	return font.toUnicodeCmap
+}
+
+func (font *pdfCIDFontType0) GetFontDescriptor() *PdfFontDescriptor {
 	return font.fontDescriptor
+}
+
+func (font *pdfCIDFontType0) BuiltinDescriptor() bool {
+	return false
 }
 
 // Encoder returns the font's text encoder.
@@ -310,13 +342,28 @@ func pdfCIDFontType2FromSkeleton(base *fontCommon) *pdfCIDFontType2 {
 	}
 }
 
-// baseFields returns the fields of `font` that are common to all PDF fonts.
-func (font *pdfCIDFontType2) baseFields() *fontCommon {
-	return &font.fontCommon
+func (font *pdfCIDFontType2) BaseFont() string {
+	return font.basefont
 }
 
-func (font *pdfCIDFontType2) getFontDescriptor() *PdfFontDescriptor {
+func (font *pdfCIDFontType2) Subtype() string {
+	return font.subtype
+}
+
+func (font *pdfCIDFontType2) ToUnicode() core.PdfObject {
+	return font.toUnicode
+}
+
+func (font *pdfCIDFontType2) ToUnicodeCMap() *cmap.CMap {
+	return font.toUnicodeCmap
+}
+
+func (font *pdfCIDFontType2) GetFontDescriptor() *PdfFontDescriptor {
 	return font.fontDescriptor
+}
+
+func (font *pdfCIDFontType2) BuiltinDescriptor() bool {
+	return false
 }
 
 // Encoder returns the font's text encoder.
@@ -358,7 +405,7 @@ func (font *pdfCIDFontType2) ToPdfObject() core.PdfObject {
 	if font.container == nil {
 		font.container = &core.PdfIndirectObject{}
 	}
-	d := font.baseFields().asPdfObjectDictionary("CIDFontType2")
+	d := asPdfObjectDictionary(font, "CIDFontType2")
 	font.container.PdfObject = d
 
 	if font.CIDSystemInfo != nil {

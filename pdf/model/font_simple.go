@@ -12,6 +12,7 @@ import (
 
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/core"
+	"github.com/unidoc/unidoc/pdf/internal/cmap"
 	"github.com/unidoc/unidoc/pdf/internal/textencoding"
 	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
@@ -37,6 +38,7 @@ var _ pdfFont = (*pdfFontSimple)(nil)
 //   Among those attributes is an optional font filestream containing the font program.
 type pdfFontSimple struct {
 	fontCommon
+	builtin   bool
 	container *core.PdfIndirectObject
 
 	// These fields are specific to simple PDF fonts.
@@ -68,16 +70,31 @@ func pdfFontSimpleFromSkeleton(base *fontCommon) *pdfFontSimple {
 	}
 }
 
-// baseFields returns the fields of `font` that are common to all PDF fonts.
-func (font *pdfFontSimple) baseFields() *fontCommon {
-	return &font.fontCommon
+func (font *pdfFontSimple) BaseFont() string {
+	return font.basefont
 }
 
-func (font *pdfFontSimple) getFontDescriptor() *PdfFontDescriptor {
+func (font *pdfFontSimple) Subtype() string {
+	return font.subtype
+}
+
+func (font *pdfFontSimple) ToUnicode() core.PdfObject {
+	return font.toUnicode
+}
+
+func (font *pdfFontSimple) ToUnicodeCMap() *cmap.CMap {
+	return font.toUnicodeCmap
+}
+
+func (font *pdfFontSimple) GetFontDescriptor() *PdfFontDescriptor {
 	if d := font.fontDescriptor; d != nil {
 		return d
 	}
 	return font.std14Descriptor
+}
+
+func (font *pdfFontSimple) BuiltinDescriptor() bool {
+	return font.builtin
 }
 
 // Encoder returns the font's text encoder.
@@ -281,7 +298,7 @@ func (font *pdfFontSimple) addEncoding() error {
 	if encoder != nil {
 		// At the end, apply the differences.
 		if differences != nil {
-			common.Log.Trace("differences=%+v font=%s", differences, font.baseFields())
+			common.Log.Trace("differences=%+v font=%s", differences, font.fontCommon)
 			encoder = textencoding.ApplyDifferences(encoder, differences)
 		}
 		font.SetEncoder(encoder)
@@ -355,7 +372,7 @@ func (font *pdfFontSimple) ToPdfObject() core.PdfObject {
 	if font.container == nil {
 		font.container = &core.PdfIndirectObject{}
 	}
-	d := font.baseFields().asPdfObjectDictionary("")
+	d := asPdfObjectDictionary(font, "")
 	font.container.PdfObject = d
 
 	if font.FirstChar != nil {
@@ -522,6 +539,7 @@ func stdFontToSimpleFont(f fonts.StdFont) pdfFontSimple {
 			subtype:  "Type1",
 			basefont: f.Name(),
 		},
+		builtin:     true,
 		fontMetrics: f.GetMetricsTable(),
 		std14Descriptor: &PdfFontDescriptor{
 			FontName:    core.MakeName(string(l.Name)),
