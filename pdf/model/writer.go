@@ -538,7 +538,7 @@ func (this *PdfWriter) Encrypt(userPass, ownerPass []byte, options *EncryptOptio
 	crypter.P = math.MaxUint32
 	crypter.EncryptMetadata = true
 	if options != nil {
-		crypter.P = int(options.Permissions.GetP())
+		crypter.P = int64(options.Permissions.GetP())
 	}
 
 	// Generate the encryption dictionary.

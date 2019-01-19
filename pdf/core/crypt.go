@@ -37,7 +37,7 @@ type PdfCrypt struct {
 	U                []byte
 	OE               []byte // R=6
 	UE               []byte // R=6
-	P                int    // TODO (v3): uint32
+	P                int64  // TODO (v3): uint32
 	Perms            []byte // R=6
 	EncryptMetadata  bool
 	Id0              string
@@ -421,7 +421,7 @@ func PdfCryptMakeNew(parser *PdfParser, ed, trailer *PdfObjectDictionary) (PdfCr
 	if !ok {
 		return crypter, errors.New("Encrypt dictionary missing permissions attr")
 	}
-	crypter.P = int(*P)
+	crypter.P = int64(*P)
 
 	if crypter.R == 6 {
 		Perms, ok := ed.Get("Perms").(*PdfObjectString)
@@ -1718,7 +1718,7 @@ func (crypt *PdfCrypt) alg13(fkey []byte) (bool, error) {
 	if !bytes.Equal(perms[9:12], []byte("adb")) {
 		return false, errors.New("decoded permissions are invalid")
 	}
-	p := int(int32(binary.LittleEndian.Uint32(perms[0:4])))
+	p := int64(int32(binary.LittleEndian.Uint32(perms[0:4])))
 	if p != crypt.P {
 		return false, errors.New("permissions validation failed")
 	}
