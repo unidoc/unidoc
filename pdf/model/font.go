@@ -59,6 +59,7 @@ type PdfFont interface {
 	GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool)
 
 	// BytesToCharcodes converts the bytes in a PDF string to character codes.
+	// TODO(dennwc): Shouldn't this be done by the encoder?
 	BytesToCharcodes(data []byte) []textencoding.CharCode
 	// CharcodeBytesToUnicode converts PDF character codes `data` to a Go unicode string.
 	CharcodeBytesToUnicode(data []byte) (string, int, int)
@@ -305,26 +306,20 @@ func charcodeBytesToUnicode(font PdfFont, data []byte) (string, int, int) {
 	return out, len([]rune(out)), numMisses
 }
 
-// bytesToCharcodes converts the bytes in a PDF string to character codes.
-func bytesToCharcodes(font PdfFont, data []byte) []textencoding.CharCode {
+// bytesToCharcodesCID converts the bytes in a PDF string to character codes (CIDs).
+func bytesToCharcodesCID(data []byte) []textencoding.CharCode {
 	common.Log.Trace("BytesToCharcodes: data=[% 02x]=%#q", data, data)
 	charcodes := make([]textencoding.CharCode, 0, len(data)+len(data)%2)
-	if font.IsCID() {
-		if len(data) == 1 {
-			data = []byte{0, data[0]}
-		}
-		if len(data)%2 != 0 {
-			common.Log.Debug("ERROR: Padding data=%+v to even length", data)
-			data = append(data, 0)
-		}
-		for i := 0; i < len(data); i += 2 {
-			b := uint16(data[i])<<8 | uint16(data[i+1])
-			charcodes = append(charcodes, textencoding.CharCode(b))
-		}
-	} else {
-		for _, b := range data {
-			charcodes = append(charcodes, textencoding.CharCode(b))
-		}
+	if len(data) == 1 {
+		data = []byte{0, data[0]}
+	}
+	if len(data)%2 != 0 {
+		common.Log.Debug("ERROR: Padding data=%+v to even length", data)
+		data = append(data, 0)
+	}
+	for i := 0; i < len(data); i += 2 {
+		b := uint16(data[i])<<8 | uint16(data[i+1])
+		charcodes = append(charcodes, textencoding.CharCode(b))
 	}
 	return charcodes
 }
@@ -449,20 +444,6 @@ func (base fontCommon) fontFlags() int {
 	return base.fontDescriptor.flags
 }
 
-// IsCID returns true if `base` is a CID font.
-func (base fontCommon) IsCID() bool {
-	if base.subtype == "" {
-		common.Log.Debug("ERROR: isCIDFont. context is nil. font=%s", base)
-	}
-	isCID := false
-	switch base.subtype {
-	case "Type0", "CIDFontType0", "CIDFontType2":
-		isCID = true
-	}
-	common.Log.Trace("isCIDFont: isCID=%t font=%s", isCID, base)
-	return isCID
-}
-
 // newFontBaseFieldsFromPdfObject returns `fontObj` as a dictionary the common fields from that
 // dictionary in the fontCommon return.  If there is a problem an error is returned.
 // The fontCommon is the group of fields common to all PDF fonts.
@@ -527,7 +508,9 @@ func newFontBaseFieldsFromPdfObject(fontObj core.PdfObject) (*core.PdfObjectDict
 	toUnicode := d.Get("ToUnicode")
 	if toUnicode != nil {
 		font.toUnicode = core.TraceToDirectObject(toUnicode)
-		codemap, err := toUnicodeToCmap(font.toUnicode, font.IsCID())
+		// TODO(dennwc): this happens too early to call the same method on the font type
+		isCID := font.subtype == "Type0" || font.subtype == "CIDFontType0" || font.subtype == "CIDFontType2"
+		codemap, err := toUnicodeToCmap(font.toUnicode, isCID)
 		if err != nil {
 			return d, font, err
 		}

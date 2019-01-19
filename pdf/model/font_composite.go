@@ -120,12 +120,16 @@ func pdfFontType0FromSkeleton(base *fontCommon) *pdfFontType0 {
 	}
 }
 
-func (font *pdfFontType0) BaseFont() string {
-	return font.basefont
+func (*pdfFontType0) IsCID() bool {
+	return true
 }
 
-func (font *pdfFontType0) Subtype() string {
-	return font.subtype
+func (*pdfFontType0) Subtype() string {
+	return "Type0"
+}
+
+func (font *pdfFontType0) BaseFont() string {
+	return font.basefont
 }
 
 func (font *pdfFontType0) FullSubtype() string {
@@ -149,8 +153,7 @@ func (font *pdfFontType0) BuiltinDescriptor() bool {
 }
 
 func (font *pdfFontType0) BytesToCharcodes(data []byte) []textencoding.CharCode {
-	// TODO(dennwc): resolve branches and inline
-	return bytesToCharcodes(font, data)
+	return bytesToCharcodesCID(data)
 }
 
 func (font *pdfFontType0) CharcodeBytesToUnicode(data []byte) (string, int, int) {
@@ -276,12 +279,16 @@ func pdfCIDFontType0FromSkeleton(base *fontCommon) *pdfCIDFontType0 {
 
 func (*pdfCIDFontType0) isCID() {}
 
-func (font *pdfCIDFontType0) BaseFont() string {
-	return font.basefont
+func (*pdfCIDFontType0) IsCID() bool {
+	return true
 }
 
-func (font *pdfCIDFontType0) Subtype() string {
-	return font.subtype
+func (*pdfCIDFontType0) Subtype() string {
+	return "CIDFontType0"
+}
+
+func (font *pdfCIDFontType0) BaseFont() string {
+	return font.basefont
 }
 
 func (font *pdfCIDFontType0) FullSubtype() string {
@@ -310,8 +317,7 @@ func (font pdfCIDFontType0) Encoder() textencoding.TextEncoder {
 }
 
 func (font *pdfCIDFontType0) BytesToCharcodes(data []byte) []textencoding.CharCode {
-	// TODO(dennwc): resolve branches and inline
-	return bytesToCharcodes(font, data)
+	return bytesToCharcodesCID(data)
 }
 
 func (font *pdfCIDFontType0) CharcodeBytesToUnicode(data []byte) (string, int, int) {
@@ -405,12 +411,16 @@ func pdfCIDFontType2FromSkeleton(base *fontCommon) *pdfCIDFontType2 {
 
 func (*pdfCIDFontType2) isCID() {}
 
-func (font *pdfCIDFontType2) BaseFont() string {
-	return font.basefont
+func (*pdfCIDFontType2) IsCID() bool {
+	return true
 }
 
-func (font *pdfCIDFontType2) Subtype() string {
-	return font.subtype
+func (*pdfCIDFontType2) Subtype() string {
+	return "CIDFontType2"
+}
+
+func (font *pdfCIDFontType2) BaseFont() string {
+	return font.basefont
 }
 
 func (font *pdfCIDFontType2) FullSubtype() string {
@@ -434,8 +444,7 @@ func (font *pdfCIDFontType2) BuiltinDescriptor() bool {
 }
 
 func (font *pdfCIDFontType2) BytesToCharcodes(data []byte) []textencoding.CharCode {
-	// TODO(dennwc): resolve branches and inline
-	return bytesToCharcodes(font, data)
+	return bytesToCharcodesCID(data)
 }
 
 func (font *pdfCIDFontType2) CharcodeBytesToUnicode(data []byte) (string, int, int) {

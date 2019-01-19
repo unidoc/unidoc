@@ -70,6 +70,10 @@ func pdfFontSimpleFromSkeleton(base *fontCommon) *pdfFontSimple {
 	}
 }
 
+func (*pdfFontSimple) IsCID() bool {
+	return false
+}
+
 func (font *pdfFontSimple) BaseFont() string {
 	return font.basefont
 }
@@ -102,8 +106,12 @@ func (font *pdfFontSimple) BuiltinDescriptor() bool {
 }
 
 func (font *pdfFontSimple) BytesToCharcodes(data []byte) []textencoding.CharCode {
-	// TODO(dennwc): resolve branches and inline
-	return bytesToCharcodes(font, data)
+	common.Log.Trace("BytesToCharcodes: data=[% 02x]=%#q", data, data)
+	charcodes := make([]textencoding.CharCode, 0, len(data))
+	for _, b := range data {
+		charcodes = append(charcodes, textencoding.CharCode(b))
+	}
+	return charcodes
 }
 
 func (font *pdfFontSimple) CharcodeBytesToUnicode(data []byte) (string, int, int) {
