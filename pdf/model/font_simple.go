@@ -146,10 +146,18 @@ func (font pdfFontSimple) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 		if r != ' ' {
 			common.Log.Trace("No charcode for rune=%v font=%s", r, font)
 		}
+		if d := font.fontDescriptor; d != nil {
+			return fonts.CharMetrics{Wx: d.missingWidth}, true
+		}
 		return fonts.CharMetrics{}, false
 	}
-	metrics, ok := font.GetCharMetrics(code)
-	return metrics, ok
+	metrics, found := font.GetCharMetrics(code)
+	if !found {
+		if d := font.fontDescriptor; d != nil {
+			return fonts.CharMetrics{Wx: d.missingWidth}, true
+		}
+	}
+	return metrics, found
 }
 
 // GetCharMetrics returns the character metrics for the specified character code.  A bool flag is

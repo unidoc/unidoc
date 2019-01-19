@@ -283,6 +283,10 @@ func (font pdfCIDFontType0) Encoder() textencoding.TextEncoder {
 // GetRuneMetrics returns the character metrics for the specified rune.
 // A bool flag is returned to indicate whether or not the entry was found.
 func (font pdfCIDFontType0) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
+	// TODO(dennwc): shouldn't this return at least something?
+	if d := font.fontDescriptor; d != nil {
+		return fonts.CharMetrics{Wx: d.missingWidth}, true
+	}
 	return fonts.CharMetrics{}, true
 }
 
@@ -388,14 +392,17 @@ func (font pdfCIDFontType2) Encoder() textencoding.TextEncoder {
 // A bool flag is returned to indicate whether or not the entry was found.
 func (font pdfCIDFontType2) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 	w, found := font.runeToWidthMap[r]
-	if !found {
-		dw, ok := core.GetInt(font.DW)
-		if !ok {
-			return fonts.CharMetrics{}, false
-		}
-		w = int(*dw)
+	if found {
+		return fonts.CharMetrics{Wx: float64(w)}, true
 	}
-	return fonts.CharMetrics{Wx: float64(w)}, true
+	dw, found := core.GetInt(font.DW)
+	if found {
+		return fonts.CharMetrics{Wx: float64(*dw)}, true
+	}
+	if d := font.fontDescriptor; d != nil {
+		return fonts.CharMetrics{Wx: d.missingWidth}, true
+	}
+	return fonts.CharMetrics{}, false
 }
 
 // GetCharMetrics returns the char metrics for character code `code`.

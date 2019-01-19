@@ -364,21 +364,6 @@ func (font *PdfFont) CharcodesToUnicodeWithStats(charcodes []textencoding.CharCo
 	return runes, len(runes), numMisses
 }
 
-// GetRuneMetrics returns the char metrics for a rune.
-// TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
-//                       well give them 0 width. There is no need for the bool return.
-func (font *PdfFont) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
-	if m, ok := font.PdfFontSub.GetRuneMetrics(r); ok {
-		return m, true
-	}
-	if desc := font.GetFontDescriptor(); desc != nil {
-		return fonts.CharMetrics{Wx: desc.missingWidth}, true
-	}
-
-	common.Log.Debug("GetGlyphCharMetrics: No metrics for font=%s", font)
-	return fonts.CharMetrics{}, false
-}
-
 // GetCharMetrics returns the char metrics for character code `code`.
 // How it works:
 //  1) It calls the GetCharMetrics function for the underlying font, either a simple font or
@@ -408,28 +393,6 @@ func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetri
 
 	common.Log.Debug("GetCharMetrics: No metrics for font=%s", font)
 	return fonts.CharMetrics{}, false
-}
-
-// GetRuneCharMetrics returns the char metrics for rune `r`.
-// TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
-//                       well give them 0 width. There is no need for the bool return.
-func (font *PdfFont) GetRuneCharMetrics(r rune) (fonts.CharMetrics, bool) {
-	var nometrics fonts.CharMetrics
-
-	encoder := font.Encoder()
-	if encoder != nil {
-		m, ok := font.GetRuneMetrics(r)
-		if ok {
-			return m, true
-		}
-		common.Log.Debug("ERROR: Metrics not found for rune=%+v %s", r, font)
-	}
-	if desc := font.GetFontDescriptor(); desc != nil {
-		return fonts.CharMetrics{Wx: desc.missingWidth}, true
-	}
-
-	common.Log.Debug("GetRuneCharMetrics: No metrics for font=%s", font)
-	return nometrics, false
 }
 
 // fontCommon represents the fields that are common to all PDF fonts.

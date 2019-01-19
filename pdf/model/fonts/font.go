@@ -17,6 +17,9 @@ import (
 type Font interface {
 	// Encoder returns the font's text encoder.
 	Encoder() textencoding.TextEncoder
+	// GetRuneMetrics returns the char metrics for rune `r`.
+	// TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
+	//                       well give them 0 width. There is no need for the bool return.
 	GetRuneMetrics(r rune) (CharMetrics, bool)
 	// ToPdfObject converts the PdfFont object to its PDF representation.
 	ToPdfObject() core.PdfObject
