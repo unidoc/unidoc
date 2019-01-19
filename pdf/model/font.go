@@ -25,6 +25,8 @@ type pdfFont interface {
 	getFontDescriptor() *PdfFontDescriptor
 	// baseFields returns fields that are common for PDF fonts.
 	baseFields() *fontCommon
+
+	GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool)
 }
 
 // PdfFont represents an underlying font structure which can be of type:
@@ -458,33 +460,15 @@ func (font *PdfFont) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 //                       well give them 0 width. There is no need for the bool return.
 // TODO(gunnsth): Reconsider whether needed or if can map via GlyphName.
 func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
-	var nometrics fonts.CharMetrics
 
 	// TODO(peterwilliams97): pdfFontType0.GetCharMetrics() calls pdfCIDFontType2.GetCharMetrics()
 	// 						  through this function. Would it be more straightforward for
 	// 						  pdfFontType0.GetCharMetrics() to call pdfCIDFontType0.GetCharMetrics()
 	// 						  and pdfCIDFontType2.GetCharMetrics() directly?
 
-	switch t := font.context.(type) {
-	case *pdfFontSimple:
-		if m, ok := t.GetCharMetrics(code); ok {
-			return m, ok
-		}
-	case *pdfFontType0:
-		if m, ok := t.GetCharMetrics(code); ok {
-			return m, ok
-		}
-	case *pdfCIDFontType0:
-		if m, ok := t.GetCharMetrics(code); ok {
-			return m, ok
-		}
-	case *pdfCIDFontType2:
-		if m, ok := t.GetCharMetrics(code); ok {
-			return m, ok
-		}
-	default:
-		common.Log.Debug("ERROR: GetCharMetrics not implemented for font type=%T.", font.context)
-		return nometrics, false
+	m, ok := font.context.GetCharMetrics(code)
+	if ok {
+		return m, true
 	}
 
 	if descriptor, err := font.GetFontDescriptor(); err == nil && descriptor != nil {
@@ -492,7 +476,7 @@ func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetri
 	}
 
 	common.Log.Debug("GetCharMetrics: No metrics for font=%s", font)
-	return nometrics, false
+	return fonts.CharMetrics{}, false
 }
 
 // GetRuneCharMetrics returns the char metrics for rune `r`.
