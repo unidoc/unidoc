@@ -111,7 +111,22 @@ func (m *Matrix) Angle() float64 {
 		theta += 2 * math.Pi
 	}
 	return theta / math.Pi * 180.0
+}
 
+// Inverse returns the inverse of `m` and a boolean to indicate if the inverse exists.
+func (m Matrix) Inverse() (Matrix, bool) {
+	a, b := m[0], m[1]
+	c, d := m[3], m[4]
+	tx, ty := m[6], m[7]
+	det := a*d - b*c
+	if math.Abs(det) < minDeterminant {
+		return Matrix{}, false
+	}
+	aI, bI := d/det, -b/det
+	cI, dI := -c/det, a/det
+	txI := -(aI*tx + cI*ty)
+	tyI := -(bI*tx + dI*ty)
+	return NewMatrix(aI, bI, cI, dI, txI, tyI), true
 }
 
 // clampRange forces `m` to have reasonable values. It is a guard against crazy values in corrupt PDF files.
@@ -119,10 +134,10 @@ func (m *Matrix) Angle() float64 {
 func (m *Matrix) clampRange() {
 	for i, x := range m {
 		if x > maxAbsNumber {
-			common.Log.Debug("CLAMP: %d -> %d", x, maxAbsNumber)
+			common.Log.Debug("CLAMP: %g -> %g", x, maxAbsNumber)
 			m[i] = maxAbsNumber
 		} else if x < -maxAbsNumber {
-			common.Log.Debug("CLAMP: %d -> %d", x, -maxAbsNumber)
+			common.Log.Debug("CLAMP: %g -> %gs", x, -maxAbsNumber)
 			m[i] = -maxAbsNumber
 		}
 	}
@@ -132,3 +147,7 @@ func (m *Matrix) clampRange() {
 // to avoid floating point exceptions.
 // TODO(gunnsth): Add reference or point to a specific example PDF that validates this.
 const maxAbsNumber = 1e9
+
+// minDeterminant is the smallest matrix determinant we are prepared to deal with
+// Smaller determinants may lead to rounding errors.
+const minDeterminant = 1.0e-6

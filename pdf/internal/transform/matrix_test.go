@@ -61,3 +61,75 @@ func makeAngleCase(r, theta float64) angleCase {
 	d := a
 	return angleCase{params{a, b, c, d, 0, 0}, theta}
 }
+
+// TestInverse tests the Matrix.Inverse() function.
+func TestInverse(t *testing.T) {
+	m := NewMatrix(1, 1, 1, 1, 0, 0)
+	_, hasInverse := m.Inverse()
+	if hasInverse {
+		t.Fatalf("%s has inverse", m)
+	}
+
+	testInverse(t, NewMatrix(1, 0, 0, 1, 0, 0))
+	testInverse(t, NewMatrix(1, 0, 0, -1, 0, 0))
+	testInverse(t, NewMatrix(0, -1, -1, 0, 0, 0))
+	testInverse(t, NewMatrix(1, 0, 0, 1, 2, 5))
+	testInverse(t, NewMatrix(1, 0, 0, 2, 2, 5))
+	testInverse(t, NewMatrix(2, 0, 4, 5, 0, 0))
+	testInverse(t, NewMatrix(2, 3, 4, 5, 0, 0))
+	testInverse(t, NewMatrix(2, 0, 0, 5, 0.1, 0))
+	testInverse(t, NewMatrix(2, 6, 6, 5, 0.1, 0))
+	testInverse(t, NewMatrix(2, 6, 6, 5, 0.1, 0.3))
+	testInverse(t, NewMatrix(1, 1, -1, 1, 0.1, 0))
+	testInverse(t, NewMatrix(2, 3, 4, 5, 0.1, 0))
+	testInverse(t, NewMatrix(2, 3, 4, 5, 0.1, 0.2))
+	testInverse(t, NewMatrix(1e8, 0, 0, 1, 0.1, 0.2))
+	testInverse(t, NewMatrix(1e8, 0, 0, 1e-8, 0.1, 0.2))
+	testInverse(t, NewMatrix(0, 1e8, 1e-8, 0, 0.1, 0.2))
+	testInverse(t, NewMatrix(0, 1e8, 1e-8, 0, 1e-8, 1e8))
+	testInverse(t, NewMatrix(1e8, -1e8, 1e-8, -2e-8, 0, 0))
+	testInverse(t, NewMatrix(1e8, -1e8, 1e-8, -2e-8, 5, 5))
+	testInverse(t, NewMatrix(1e8, -1e8, 1e-8, -2e-8, 5, 1e-8))
+	testInverse(t, NewMatrix(1, 1-1e5, 1, 1+1e5, 0, 0))
+}
+
+// testInverse tests if `m`.Inverse() is the inverse of `m`.
+func testInverse(t *testing.T, m Matrix) {
+	inv, hasInverse := m.Inverse()
+	if !hasInverse {
+		t.Fatalf("No inverse for %s", m)
+	}
+	pre := m.Mult(inv)
+	if !isIdentity(pre) {
+		t.Fatalf("Not pre-inverse:\n"+
+			"\t   m=%s\n"+
+			"\t inv=%s\n"+
+			"\t pre=%s\n\t", m, inv, pre)
+	}
+	post := inv.Mult(m)
+	if !isIdentity(post) {
+		t.Fatalf("Not post-inverse:\n"+
+			"\t   m=%s\n"+
+			"\t inv=%s\n"+
+			"\tpost=%s\n\t", m, inv, post)
+	}
+}
+
+// isIdentity returns true if `m` approximates the identity matrix.
+func isIdentity(m Matrix) bool {
+	return isOne(m[0]) && isZero(m[1]) && isZero(m[2]) &&
+		isZero(m[3]) && isOne(m[4]) && isZero(m[5]) &&
+		isZero(m[6]) && isZero(m[7]) && isOne(m[8])
+}
+
+// isZero returns true if `x` is approximately one.
+func isOne(x float64) bool {
+	return isZero(x - 1.0)
+}
+
+// isZero returns true if `x` is approximately zero.
+func isZero(x float64) bool {
+	return math.Abs(x) <= tolerance
+}
+
+const tolerance = 1.0e-10
