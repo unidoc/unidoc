@@ -94,8 +94,7 @@ func (m Matrix) Scale(xScale, yScale float64) Matrix {
 	return m.Mult(NewMatrix(xScale, xScale, yScale, xScale, 0, 0))
 }
 
-// Rotate a returns `m` with an extra rotation of `theta`to degrees.
-// m.Rotate(θ) is equivalent to m.Concat(NewMatrix(cos(θ), -sin(θ), sin(θ), cos(θ) 0, 0))
+// Rotate returns `m` with an extra rotation of `theta` degrees.
 // NOTE: This rotation pre-multiplies `m` so it will be scaled and rotated by `m`.
 func (m Matrix) Rotate(theta float64) Matrix {
 	radians := theta / 180.0 * math.Pi

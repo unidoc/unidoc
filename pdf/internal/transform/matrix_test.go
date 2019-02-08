@@ -142,7 +142,7 @@ func testInverse(t *testing.T, m Matrix) {
 }
 
 // TestInverseTransforms tests that transforms on inverses behave correctly.
-// NOTE: This can be a little subltel as affine transforms don't have unique decompositions into
+// NOTE: This can be a little subtle as affine transforms don't have unique decompositions into
 // scaling, rotation, shearing and translation.
 func TestInverseTransforms(t *testing.T) {
 	for _, m := range baseMatrices {
@@ -150,14 +150,16 @@ func TestInverseTransforms(t *testing.T) {
 	}
 }
 
-// testInverseRotations checks that a) rotating `m` by theta and b) rotating the inverse of `m` by -theta
+// testInverseRotations checks that
+//   a) rotating `m` by theta and
+//   b) rotating the inverse of `m` by -theta
 // gives matrices whose rotations (angle of rotated matrix - angle of original matrix) are the
 // negative of each other.
 func testInverseRotations(t *testing.T, m Matrix) {
-	// NOTE: Decompositions of affine tranforms to scaling, rotation and shearing is generally not unique.
+	// NOTE: Decompositions of affine tranforms into scaling, rotation and shearing is generally not unique.
 	//       If the 2x2 submatrix is  | cosθ -sinθ | then the rotation is unique but instead of
 	//                                | sinθ  cosθ |
-	//       enforcing this, we only require that the signs are consistent with a rotation.
+	//       enforcing this, we only require that the signs are consistent with a pure rotation.
 	if (equals(m[1], 0) && equals(m[3], 0) && (m[0] < 0.0) != (m[4] < 0.0)) || (m[1] < 0.0) == (m[3] < 0.0) {
 		return
 	}
