@@ -20,8 +20,8 @@ func init() {
 // TestAngle tests the Matrix.Angle() function.
 func TestAngle(t *testing.T) {
 	extraTests := []angleCase{}
-	for θ := 0.01; θ <= 360.0; θ *= 1.1 {
-		extraTests = append(extraTests, makeAngleCase(2.0, θ))
+	for theta := 0.01; theta <= 360.0; theta *= 1.1 {
+		extraTests = append(extraTests, makeAngleCase(2.0, theta))
 	}
 
 	const angleTol = 1.0e-10
@@ -29,14 +29,14 @@ func TestAngle(t *testing.T) {
 	for _, test := range append(angleTests, extraTests...) {
 		p := test.params
 		m := NewMatrix(p.a, p.b, p.c, p.d, p.tx, p.ty)
-		θ := m.Angle()
-		if !equalsDegrees(θ, test.θ) {
-			t.Fatalf("Bad angle: m=%s expected=%g° actual=%g°", m, test.θ, θ)
+		theta := m.Angle()
+		if !equalsDegrees(theta, test.theta) {
+			t.Fatalf("Bad angle: m=%s expected=%g° actual=%g°", m, test.theta, theta)
 		}
-		rot := IdentityMatrix().Rotate(test.θ)
-		rotθ := rot.Angle()
-		if !equalsDegrees(rotθ, test.θ) {
-			t.Fatalf("Bad angle: m=%s expected=%g° actual=%g°", m, test.θ, rotθ)
+		rot := IdentityMatrix().Rotate(test.theta)
+		rotTheta := rot.Angle()
+		if !equalsDegrees(rotTheta, test.theta) {
+			t.Fatalf("Bad angle: m=%s expected=%g° actual=%g°", m, test.theta, rotTheta)
 		}
 
 	}
@@ -45,28 +45,28 @@ func TestAngle(t *testing.T) {
 type params struct{ a, b, c, d, tx, ty float64 }
 type angleCase struct {
 	params         // Affine transform.
-	θ      float64 // Rotation of affine transform in degrees.
+	theta  float64 // Rotation of affine transform in degrees.
 }
 
 var angleTests = []angleCase{
-	{params: params{1, 0, 0, 1, 0, 0}, θ: 0},
-	{params: params{0, -1, 1, 0, 0, 0}, θ: 90},
-	{params: params{-1, 0, 0, -1, 0, 0}, θ: 180},
-	{params: params{0, 1, -1, 0, 0, 0}, θ: 270},
-	{params: params{1, -1, 1, 1, 0, 0}, θ: 45},
-	{params: params{-1, -1, 1, -1, 0, 0}, θ: 135},
-	{params: params{-1, 1, -1, -1, 0, 0}, θ: 225},
-	{params: params{1, 1, -1, 1, 0, 0}, θ: 315},
+	{params: params{1, 0, 0, 1, 0, 0}, theta: 0},
+	{params: params{0, -1, 1, 0, 0, 0}, theta: 90},
+	{params: params{-1, 0, 0, -1, 0, 0}, theta: 180},
+	{params: params{0, 1, -1, 0, 0, 0}, theta: 270},
+	{params: params{1, -1, 1, 1, 0, 0}, theta: 45},
+	{params: params{-1, -1, 1, -1, 0, 0}, theta: 135},
+	{params: params{-1, 1, -1, -1, 0, 0}, theta: 225},
+	{params: params{1, 1, -1, 1, 0, 0}, theta: 315},
 }
 
-// makeAngleCase makes an angleCase for a Matrix with scale `r` and angle `θ` degrees.
-func makeAngleCase(r, θ float64) angleCase {
-	radians := θ / 180.0 * math.Pi
+// makeAngleCase makes an angleCase for a Matrix with scale `r` and angle `theta` degrees.
+func makeAngleCase(r, theta float64) angleCase {
+	radians := theta / 180.0 * math.Pi
 	a := r * math.Cos(radians)
 	b := -r * math.Sin(radians)
 	c := -b
 	d := a
-	return angleCase{params{a, b, c, d, 0, 0}, θ}
+	return angleCase{params{a, b, c, d, 0, 0}, theta}
 }
 
 var (
@@ -150,7 +150,7 @@ func TestInverseTransforms(t *testing.T) {
 	}
 }
 
-// testInverseRotations checks that a) rotating `m` by θ and b) rotating the inverse of `m` by -θ
+// testInverseRotations checks that a) rotating `m` by theta and b) rotating the inverse of `m` by -theta
 // gives matrices whose rotations (angle of rotated matrix - angle of original matrix) are the
 // negative of each other.
 func testInverseRotations(t *testing.T, m Matrix) {
@@ -162,34 +162,34 @@ func testInverseRotations(t *testing.T, m Matrix) {
 		return
 	}
 
-	θm := m.Angle()
+	mTheta := m.Angle()
 	inv, hasInverse := m.Inverse()
 	if !hasInverse {
 		t.Fatalf("No inverse: m=%s", m)
 	}
-	θinv := inv.Angle()
+	invTheta := inv.Angle()
 
-	for _, θ := range []float64{0, 90, 180, 270, 45, 77, 1e-8} {
-		rot := m.Rotate(θ)
-		θrot := rot.Angle()
-		rotinv := inv.Rotate(-θ)
-		θrotinv := rotinv.Angle()
+	for _, theta := range []float64{0, 90, 180, 270, 45, 77, 1e-8} {
+		rot := m.Rotate(theta)
+		rotTheta := rot.Angle()
+		rotinv := inv.Rotate(-theta)
+		rotinvTheta := rotinv.Angle()
 
 		description := fmt.Sprintf("\t     m=%s %3g° %s\n"+
 			"\t   rot=%s %3g° %s\n"+
 			"\t   inv=%s %3g° %s\n"+
 			"\trotinv=%s %3g° %s",
-			m, θm, showXform(m),
-			rot, θrot, showXform(rot),
-			inv, θinv, showXform(inv),
-			rotinv, θrotinv, showXform(rotinv))
+			m, mTheta, showXform(m),
+			rot, rotTheta, showXform(rot),
+			inv, invTheta, showXform(inv),
+			rotinv, rotinvTheta, showXform(rotinv))
 
-		if !equalsDegrees(θrot-θm, θ) {
-			t.Fatalf("θ!=θrot-θm: θ=%g° θrot-θm=%g°\n%s\n", θ, θrot-θm, description)
+		if !equalsDegrees(rotTheta-mTheta, theta) {
+			t.Fatalf("theta!=rotTheta-mTheta: theta=%g° rotTheta-mTheta=%g°\n%s\n", theta, rotTheta-mTheta, description)
 		}
-		if !equalsDegrees(θrotinv-θinv, -(θrot - θm)) {
-			t.Fatalf("θrotinv-θinv != -(θrot - θm): θ=%g° θrotinv-θinv=%g° θrot-θm=%g°\n%s",
-				θ, θrotinv-θinv, θrot-θm, description)
+		if !equalsDegrees(rotinvTheta-invTheta, -(rotTheta - mTheta)) {
+			t.Fatalf("rotinvTheta-invTheta != -(rotTheta - mTheta): theta=%g° rotinvTheta-invTheta=%g° rotTheta-mTheta=%g°\n%s",
+				theta, rotinvTheta-invTheta, rotTheta-mTheta, description)
 		}
 		// post := rot.Mult(rotinv)
 		// if !isIdentity(post) {

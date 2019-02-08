@@ -42,10 +42,10 @@ func NewMatrix(a, b, c, d, tx, ty float64) Matrix {
 
 // NewMatrix returns an affine transform matrix that
 //   scales by `xScale`, `yScale`,
-//   rotated by `θ` degrees, and
+//   rotated by `theta` degrees, and
 //   translates by `tx`, `ty`.
-func NewMatrixFromTransforms(xScale, yScale, θ, tx, ty float64) Matrix {
-	return IdentityMatrix().Scale(xScale, yScale).Rotate(θ).Translate(tx, ty)
+func NewMatrixFromTransforms(xScale, yScale, theta, tx, ty float64) Matrix {
+	return IdentityMatrix().Scale(xScale, yScale).Rotate(theta).Translate(tx, ty)
 }
 
 // String returns a string describing `m`.
@@ -94,13 +94,13 @@ func (m Matrix) Scale(xScale, yScale float64) Matrix {
 	return m.Mult(NewMatrix(xScale, xScale, yScale, xScale, 0, 0))
 }
 
-// Rotate a returns `m` with an extra rotation of `θ`to degrees.
+// Rotate a returns `m` with an extra rotation of `theta`to degrees.
 // m.Rotate(θ) is equivalent to m.Concat(NewMatrix(cos(θ), -sin(θ), sin(θ), cos(θ) 0, 0))
 // NOTE: This rotation pre-multiplies `m` so it will be scaled and rotated by `m`.
-func (m Matrix) Rotate(θ float64) Matrix {
-	radians := θ / 180.0 * math.Pi
-	cosθ, sinθ := math.Cos(radians), math.Sin(radians)
-	b := NewMatrix(cosθ, -sinθ, sinθ, cosθ, 0, 0)
+func (m Matrix) Rotate(theta float64) Matrix {
+	radians := theta / 180.0 * math.Pi
+	cos, sin := math.Cos(radians), math.Sin(radians)
+	b := NewMatrix(cos, -sin, sin, cos, 0, 0)
 	return m.Mult(b)
 }
 
