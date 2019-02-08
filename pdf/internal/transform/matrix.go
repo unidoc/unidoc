@@ -159,7 +159,7 @@ func (m *Matrix) clampRange() {
 			common.Log.Debug("CLAMP: %g -> %g", x, maxAbsNumber)
 			m[i] = maxAbsNumber
 		} else if x < -maxAbsNumber {
-			common.Log.Debug("CLAMP: %g -> %gs", x, -maxAbsNumber)
+			common.Log.Debug("CLAMP: %g -> %g", x, -maxAbsNumber)
 			m[i] = -maxAbsNumber
 		}
 	}
