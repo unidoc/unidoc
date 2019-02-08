@@ -418,7 +418,8 @@ func (enc *FlateEncoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error
 // EncodeBytes encodes a bytes array and return the encoded value based on the encoder parameters.
 func (enc *FlateEncoder) EncodeBytes(data []byte) ([]byte, error) {
 	if enc.Predictor != 1 && enc.Predictor != 11 {
-		common.Log.Debug("Encoding error: FlateEncoder Predictor = 1, 11 only supported")
+		common.Log.Debug("Encoding error: FlateEncoder Predictor=%d (Only 1, 11 supported)",
+			enc.Predictor)
 		return nil, ErrUnsupportedEncodingParameters
 	}
 

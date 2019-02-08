@@ -40,10 +40,18 @@ func NewMatrix(a, b, c, d, tx, ty float64) Matrix {
 	return m
 }
 
+// NewMatrix returns an affine transform matrix that
+//   scales by `xScale`, `yScale`,
+//   rotated by `θ` degrees, and
+//   translates by `tx`, `ty`.
+func NewMatrixFromTransforms(xScale, yScale, θ, tx, ty float64) Matrix {
+	return IdentityMatrix().Scale(xScale, yScale).Rotate(θ).Translate(tx, ty)
+}
+
 // String returns a string describing `m`.
 func (m Matrix) String() string {
 	a, b, c, d, tx, ty := m[0], m[1], m[3], m[4], m[6], m[7]
-	return fmt.Sprintf("[%.4f,%.4f,%.4f,%.4f:%.4f,%.4f]", a, b, c, d, tx, ty)
+	return fmt.Sprintf("[%7.4f,%7.4f,%7.4f,%7.4f:%7.4f,%7.4f]", a, b, c, d, tx, ty)
 }
 
 // Set sets `m` to affine transform a,b,c,d,tx,ty.
@@ -56,9 +64,9 @@ func (m *Matrix) Set(a, b, c, d, tx, ty float64) {
 
 // Concat sets `m` to `b` × `m`.
 // `b` needs to be created by newMatrix. i.e. It must be an affine transform.
-//    m00 m01 0     b00 b01 0     m00*b00 + m01*b01        m00*b10 + m01*b11        0
-//    m10 m11 0  ×  b10 b11 0  =  m10*b00 + m11*b01        m10*b10 + m11*b11        0
-//    m20 m21 1     b20 b21 1     m20*b00 + m21*b10 + b20  m20*b01 + m21*b11 + b21  1
+//    b00 b01 0     m00 m01 0     b00*m00 + b01*m01        b00*m10 + b01*m11        0
+//    b10 b11 0  ×  m10 m11 0  ➔  b10*m00 + b11*m01        b10*m10 + b11*m11        0
+//    b20 b21 1     m20 m21 1     b20*m00 + b21*m10 + m20  b20*m01 + b21*m11 + m21  1
 func (m *Matrix) Concat(b Matrix) {
 	*m = Matrix{
 		b[0]*m[0] + b[1]*m[3], b[0]*m[1] + b[1]*m[4], 0,
@@ -74,38 +82,45 @@ func (m Matrix) Mult(b Matrix) Matrix {
 	return m
 }
 
-// Translate appends a translation of `dx`,`dy` to `m`.
-// m.Translate(dx, dy) is equivalent to m.Concat(NewMatrix(1, 0, 0, 1, dx, dy))
-func (m *Matrix) Translate(dx, dy float64) {
-	m[6] += dx
-	m[7] += dy
-	m.clampRange()
+// Translate returns `m` with an extra translation of `tx`,`ty`.
+// NOTE: This translation is pre-multiplied so it will be scaled and rotated by `m`.
+func (m Matrix) Translate(tx, ty float64) Matrix {
+	return m.Mult(TranslationMatrix(tx, ty))
 }
 
-// Translation returns the translation part of `m`.
-func (m *Matrix) Translation() (float64, float64) {
+// Scale returns `m` with an extra  scaling of `xScale`,`yScale` to `m`.
+// NOTE: This scaling pre-multiplies `m` so it will be scaled and rotated by `m`.
+func (m Matrix) Scale(xScale, yScale float64) Matrix {
+	return m.Mult(NewMatrix(xScale, xScale, yScale, xScale, 0, 0))
+}
+
+// Rotate a returns `m` with an extra rotation of `θ`to degrees.
+// m.Rotate(θ) is equivalent to m.Concat(NewMatrix(cos(θ), -sin(θ), sin(θ), cos(θ) 0, 0))
+// NOTE: This rotation pre-multiplies `m` so it will be scaled and rotated by `m`.
+func (m Matrix) Rotate(θ float64) Matrix {
+	radians := θ / 180.0 * math.Pi
+	cosθ, sinθ := math.Cos(radians), math.Sin(radians)
+	b := NewMatrix(cosθ, -sinθ, sinθ, cosθ, 0, 0)
+	return m.Mult(b)
+}
+
+// Translation returns the translation of the affine transform `m`.
+func (m Matrix) Translation() (float64, float64) {
 	return m[6], m[7]
 }
 
-// Transform returns coordinates `x`,`y` transformed by `m`.
-func (m *Matrix) Transform(x, y float64) (float64, float64) {
-	xp := x*m[0] + y*m[1] + m[6]
-	yp := x*m[3] + y*m[4] + m[7]
-	return xp, yp
-}
-
-// ScalingFactorX returns the X scaling of the affine transform.
-func (m *Matrix) ScalingFactorX() float64 {
+// ScalingFactorX returns the X scaling of the affine transform `m`.
+func (m Matrix) ScalingFactorX() float64 {
 	return math.Hypot(m[0], m[1])
 }
 
-// ScalingFactorY returns the Y scaling of the affine transform.
-func (m *Matrix) ScalingFactorY() float64 {
+// ScalingFactorY returns the Y scaling of the affine transform `m`.
+func (m Matrix) ScalingFactorY() float64 {
 	return math.Hypot(m[3], m[4])
 }
 
 // Angle returns the angle of the affine transform in `m` in degrees.
-func (m *Matrix) Angle() float64 {
+func (m Matrix) Angle() float64 {
 	theta := math.Atan2(-m[1], m[0])
 	if theta < 0.0 {
 		theta += 2 * math.Pi
@@ -113,7 +128,7 @@ func (m *Matrix) Angle() float64 {
 	return theta / math.Pi * 180.0
 }
 
-// Inverse returns the inverse of `m` and a boolean to indicate if the inverse exists.
+// Inverse returns the inverse of `m` and a boolean to indicate whether the inverse exists.
 func (m Matrix) Inverse() (Matrix, bool) {
 	a, b := m[0], m[1]
 	c, d := m[3], m[4]
@@ -127,6 +142,13 @@ func (m Matrix) Inverse() (Matrix, bool) {
 	txI := -(aI*tx + cI*ty)
 	tyI := -(bI*tx + dI*ty)
 	return NewMatrix(aI, bI, cI, dI, txI, tyI), true
+}
+
+// Transform returns coordinates `x`,`y` transformed by `m`.
+func (m Matrix) Transform(x, y float64) (float64, float64) {
+	xp := x*m[0] + y*m[1] + m[6]
+	yp := x*m[3] + y*m[4] + m[7]
+	return xp, yp
 }
 
 // clampRange forces `m` to have reasonable values. It is a guard against crazy values in corrupt PDF files.
@@ -148,6 +170,6 @@ func (m *Matrix) clampRange() {
 // TODO(gunnsth): Add reference or point to a specific example PDF that validates this.
 const maxAbsNumber = 1e9
 
-// minDeterminant is the smallest matrix determinant we are prepared to deal with
+// minDeterminant is the smallest matrix determinant we are prepared to deal with.
 // Smaller determinants may lead to rounding errors.
 const minDeterminant = 1.0e-6
