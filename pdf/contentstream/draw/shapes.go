@@ -214,7 +214,7 @@ func (line Line) Draw(gsName string) ([]byte, *pdf.PdfRectangle, error) {
 	L := math.Sqrt(math.Pow(dx, 2.0) + math.Pow(dy, 2.0))
 	w := line.LineWidth
 
-	pi := math.Pi
+	const pi = math.Pi
 
 	mul := 1.0
 	if dx < 0 {
