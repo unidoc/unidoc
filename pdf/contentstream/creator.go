@@ -98,11 +98,8 @@ func (cc *ContentCreator) Scale(sx, sy float64) *ContentCreator {
 
 // RotateDeg applies a rotation to the transformation matrix.
 func (cc *ContentCreator) RotateDeg(angle float64) *ContentCreator {
-	u1 := math.Cos(angle * math.Pi / 180.0)
-	u2 := math.Sin(angle * math.Pi / 180.0)
-	u3 := -math.Sin(angle * math.Pi / 180.0)
-	u4 := math.Cos(angle * math.Pi / 180.0)
-	return cc.Add_cm(u1, u2, u3, u4, 0, 0)
+	sin, cos := math.Sincos(angle / 180.0 * math.Pi)
+	return cc.Add_cm(cos, sin, -sin, cos, 0, 0)
 }
 
 // Add_w adds 'w' operand to the content stream, which sets the line width.

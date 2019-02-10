@@ -26,12 +26,9 @@ func NewVectorBetween(a Point, b Point) Vector {
 	return v
 }
 
-func NewVectorPolar(length float64, theta float64) Vector {
-	v := Vector{}
-
-	v.Dx = length * math.Cos(theta)
-	v.Dy = length * math.Sin(theta)
-	return v
+func NewVectorPolar(length, theta float64) Vector {
+	sin, cos := math.Sincos(theta)
+	return Vector{Dx: length * cos, Dy: length * sin}
 }
 
 func (v Vector) Add(other Vector) Vector {

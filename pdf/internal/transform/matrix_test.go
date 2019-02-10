@@ -61,12 +61,11 @@ var angleTests = []angleCase{
 
 // makeAngleCase makes an angleCase for a Matrix with scale `r` and angle `theta` degrees.
 func makeAngleCase(r, theta float64) angleCase {
-	radians := theta / 180.0 * math.Pi
-	a := r * math.Cos(radians)
-	b := -r * math.Sin(radians)
-	c := -b
-	d := a
-	return angleCase{params{a, b, c, d, 0, 0}, theta}
+	sin, cos := math.Sincos(theta / 180.0 * math.Pi)
+	return angleCase{params{
+		r * cos, -r * sin,
+		r * sin, r * cos,
+		0, 0}, theta}
 }
 
 var (
