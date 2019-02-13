@@ -30,6 +30,8 @@ func (e *Extractor) ExtractPageImages() (*PageImages, error) {
 		return nil, err
 	}
 
+	common.Log.Debug("ExtractPageImages: xObjectImages=%d inlineImages=%d",
+		ctx.xObjectImages, ctx.inlineImages)
 	return &PageImages{
 		Images: ctx.extractedImages,
 	}, nil
@@ -45,19 +47,7 @@ type PageImages struct {
 // All coordinates are in device coordinates.
 type ImageMark struct {
 	Image *model.Image
-
-	// Dimensions of the image as displayed in the PDF.
-	Width  float64
-	Height float64
-
-	// Position of the image in PDF coordinates (lower left corner).
-	X float64
-	Y float64
-
-	// Angle in degrees, if rotated.
-	Angle float64
-
-	CTM transform.Matrix
+	CTM   transform.Matrix
 }
 
 // String returns a string describing `mark`.
@@ -65,8 +55,11 @@ func (mark ImageMark) String() string {
 	img := mark.Image
 	imgStr := fmt.Sprintf("%dx%d cpts=%d bpp=%d",
 		img.Width, img.Height, img.ColorComponents, img.BitsPerComponent)
-	return fmt.Sprintf("%.1fx%.1f (%.1f,%.1f) ϴ=%.1f img=[%s]",
-		mark.Width, mark.Height, mark.X, mark.Y, mark.Angle, imgStr)
+	ctm := mark.CTM
+	tx, ty := ctm.Translation()
+	ctmStr := fmt.Sprintf("scale=(%.1fx%.1f) ϴ=%.1f° translation=(%.1f,%.1f)",
+		ctm.ScalingFactorX(), ctm.ScalingFactorY(), ctm.Angle(), tx, ty)
+	return fmt.Sprintf("%s %s %s", imgStr, ctm, ctmStr)
 }
 
 // Clip returns `mark`.Image clipped to `box`.
@@ -119,13 +112,15 @@ func (mark ImageMark) PageView(bbox model.PdfRectangle, doScale bool) (*image.NR
 	if err != nil {
 		return nil, err
 	}
+
+	ctm := mark.CTM
 	bgColor := color.White
-	img = imaging.Rotate(img, -mark.Angle, bgColor)
+	img = imaging.Rotate(img, -ctm.Angle(), bgColor)
 
 	if doScale {
 		W, H := int(mark.Image.Width), int(mark.Image.Height)
 		wf, hf := float64(W), float64(H)
-		w, h := mark.Width, mark.Height
+		w, h := ctm.ScalingFactorX(), ctm.ScalingFactorY()
 		fmt.Printf("W,H = %d,%d (%.2f) w,h=%g,%g (%.2f)\n", W, H, hf/wf, w, h, h/w)
 		if w*hf != wf*h {
 			if w*hf > wf*h {
@@ -237,22 +232,17 @@ func (ctx *imageExtractContext) extractInlineImage(iimg *contentstream.ContentSt
 		cs = model.NewPdfColorspaceDeviceGray()
 	}
 
-	rgbImg, err := cs.ImageToRGB(*img)
-	if err != nil {
-		return err
-	}
+	// rgbImg, err := cs.ImageToRGB(*img)
+	// if err != nil {
+	// 	return err
+	// }
 
-	imgMark := ImageMark{
-		Image:  &rgbImg,
-		CTM:    gs.CTM,
-		Width:  gs.CTM.ScalingFactorX(),
-		Height: gs.CTM.ScalingFactorY(),
-		Angle:  gs.CTM.Angle(),
-	}
-	imgMark.X, imgMark.Y = gs.CTM.Translation()
+	imgMark := ImageMark{img, gs.CTM}
 
 	ctx.extractedImages = append(ctx.extractedImages, imgMark)
 	ctx.inlineImages++
+	common.Log.Debug("extractInlineImage: xObjectImages=%d inlineImages=%d",
+		ctx.xObjectImages, ctx.inlineImages)
 	return nil
 }
 
@@ -287,25 +277,20 @@ func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName,
 		ctx.cacheXObjectImages[stream] = cimg
 	}
 	img := cimg.image
-	cs := cimg.cs
+	// cs := cimg.cs
 
-	rgbImg, err := cs.ImageToRGB(*img)
-	if err != nil {
-		return err
-	}
+	// rgbImg, err := cs.ImageToRGB(*img)
+	// if err != nil {
+	// 	return err
+	// }
 
 	common.Log.Debug("@Do CTM: %s", gs.CTM.String())
-	imgMark := ImageMark{
-		Image:  &rgbImg,
-		CTM:    gs.CTM,
-		Width:  gs.CTM.ScalingFactorX(),
-		Height: gs.CTM.ScalingFactorY(),
-		Angle:  gs.CTM.Angle(),
-	}
-	imgMark.X, imgMark.Y = gs.CTM.Translation()
-
+	imgMark := ImageMark{Image: img, CTM: gs.CTM}
+	common.Log.Debug("@Do imgMark: %s", imgMark.String())
 	ctx.extractedImages = append(ctx.extractedImages, imgMark)
 	ctx.xObjectImages++
+	common.Log.Debug("extractXObjectImage: xObjectImages=%d inlineImages=%d",
+		ctx.xObjectImages, ctx.inlineImages)
 	return nil
 }
 
