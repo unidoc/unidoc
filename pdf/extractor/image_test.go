@@ -13,8 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"github.com/unidoc/unidoc/pdf/core"
+	"github.com/unidoc/unidoc/pdf/internal/transform"
 	"github.com/unidoc/unidoc/pdf/model"
 )
 
@@ -93,8 +93,10 @@ func TestImageExtractionBasic(t *testing.T) {
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
 
 		for i, img := range pageImages.Images {
+			expected := tcase.Expected[i]
+			expected.CTM = transform.NewMatrixFromTransforms(img.Width, img.Height, img.Angle, img.X, img.Y)
 			img.Image = nil // Discard image data.
-			assert.Equalf(t, tcase.Expected[i], img, "i = %d", i)
+			assert.Equalf(t, expected, img, "i = %d", i)
 		}
 	}
 }
@@ -183,8 +185,10 @@ func TestImageExtractionNestedCM(t *testing.T) {
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
 
 		for i, img := range pageImages.Images {
+			expected := tcase.Expected[i]
+			expected.CTM = transform.NewMatrixFromTransforms(img.Width, img.Height, img.Angle, img.X, img.Y)
 			img.Image = nil // Discard image data.
-			assert.Equalf(t, tcase.Expected[i], img, "i = %d", i)
+			assert.Equalf(t, expected, img, "i = %d", i)
 		}
 	}
 }
@@ -272,7 +276,7 @@ func TestImageExtractionRealWorld(t *testing.T) {
 				{
 					Image:  nil,
 					Width:  247.44,
-					Height: 0.48,
+					Height: -0.48,
 					X:      313.788,
 					Y:      715.248,
 					Angle:  0.0,
@@ -280,7 +284,7 @@ func TestImageExtractionRealWorld(t *testing.T) {
 				{
 					Image:  nil,
 					Width:  247.44,
-					Height: 0.48,
+					Height: -0.48,
 					X:      313.788,
 					Y:      594.648,
 					Angle:  0.0,
@@ -313,8 +317,10 @@ func TestImageExtractionRealWorld(t *testing.T) {
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
 
 		for i, img := range pageImages.Images {
+			expected := tcase.Expected[i]
+			expected.CTM = transform.NewMatrixFromTransforms(img.Width, img.Height, img.Angle, img.X, img.Y)
 			img.Image = nil // Discard image data.
-			assert.Equalf(t, tcase.Expected[i], img, "i = %d", i)
+			assert.Equalf(t, expected, img, "i = %d", i)
 		}
 	}
 }

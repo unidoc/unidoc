@@ -6,9 +6,17 @@
 package extractor
 
 import (
+	"errors"
+	"fmt"
+	"image"
+	"image/color"
+	"math"
+
+	"github.com/disintegration/imaging"
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/contentstream"
 	"github.com/unidoc/unidoc/pdf/core"
+	"github.com/unidoc/unidoc/pdf/internal/transform"
 	"github.com/unidoc/unidoc/pdf/model"
 )
 
@@ -48,6 +56,102 @@ type ImageMark struct {
 
 	// Angle in degrees, if rotated.
 	Angle float64
+
+	CTM transform.Matrix
+}
+
+// String returns a string describing `mark`.
+func (mark ImageMark) String() string {
+	img := mark.Image
+	imgStr := fmt.Sprintf("%dx%d cpts=%d bpp=%d",
+		img.Width, img.Height, img.ColorComponents, img.BitsPerComponent)
+	return fmt.Sprintf("%.1fx%.1f (%.1f,%.1f) ϴ=%.1f img=[%s]",
+		mark.Width, mark.Height, mark.X, mark.Y, mark.Angle, imgStr)
+}
+
+// Clip returns `mark`.Image clipped to `box`.
+// TODO(peterwilliams): Return image in orginal colorspace. The github.com/disintegration/imaging
+// library we are using converts all images to image.NRGBA.
+// This function can be used to clip extracted images the same way they are clipped in the PDF they
+// are extracted from to give the same image the user sees in the enclosing PDF
+func (mark ImageMark) Clip(box model.PdfRectangle) (*image.NRGBA, error) {
+	inv, hasInverse := mark.CTM.Inverse()
+	if !hasInverse {
+		return nil, errors.New("CTM has no inverse")
+	}
+	clp := model.PdfRectangle{}
+	clp.Llx, clp.Lly = inv.Transform(box.Llx, box.Lly)
+	clp.Urx, clp.Ury = inv.Transform(box.Urx, box.Ury)
+	clp.Llx, clp.Lly = maxFloat(0, clp.Llx), maxFloat(0, clp.Lly)
+	clp.Urx, clp.Ury = minFloat(1, clp.Urx), minFloat(1, clp.Ury)
+
+	img, err := mark.Image.ToGoImage()
+	if err != nil {
+		return nil, err
+	}
+	b := img.Bounds()
+	w := float64(b.Max.X - b.Min.X)
+	h := float64(b.Max.Y - b.Min.Y)
+
+	rect := image.Rectangle{
+		Min: image.Point{
+			X: round(w * clp.Llx),
+			Y: round(h * clp.Lly),
+		},
+		Max: image.Point{
+			X: round(w * clp.Urx),
+			Y: round(h * clp.Ury),
+		},
+	}
+
+	imgRgb := imaging.Crop(img, rect)
+	return imgRgb, nil
+}
+
+// PageView returns `mark`.Image transformed to appear as it appears the PDF page it was extracted
+// from.
+//    `bbox` is a clipping rectangle. It should be the clipping path in effect when the image was
+//          rendered. TODO(peterwilliams97) support non-rectangular clipping paths.
+//    If `doScale` is true the image is scaled as it is on the PDF page. `doScale` will typically
+//          only be set false for debugging to check it the scaling is correct.
+func (mark ImageMark) PageView(bbox model.PdfRectangle, doScale bool) (*image.NRGBA, error) {
+	img, err := mark.Clip(bbox)
+	if err != nil {
+		return nil, err
+	}
+	bgColor := color.White
+	img = imaging.Rotate(img, -mark.Angle, bgColor)
+
+	if doScale {
+		W, H := int(mark.Image.Width), int(mark.Image.Height)
+		wf, hf := float64(W), float64(H)
+		w, h := mark.Width, mark.Height
+		fmt.Printf("W,H = %d,%d (%.2f) w,h=%g,%g (%.2f)\n", W, H, hf/wf, w, h, h/w)
+		if w*hf != wf*h {
+			if w*hf > wf*h {
+				W0 := W
+				W = round(hf * (w / h))
+				fmt.Printf("W %d->%d (%.2f)\n", W0, W, float64(H)/float64(W))
+			} else {
+				H0 := H
+				H = round(wf * (h / w))
+				fmt.Printf("H %d->%d (%.2f)\n", H0, H, float64(H)/float64(W))
+			}
+			img = imaging.Resize(img, W, H, imaging.CatmullRom)
+		}
+	}
+
+	return img, nil
+}
+
+// round returns `x` rounded the nearest int.
+func round(x float64) int {
+	return int(math.Round(x))
+}
+
+// round64 returns `x` rounded the nearest int64.
+func round64(x float64) int64 {
+	return int64(math.Round(x))
 }
 
 // Provide context for image extraction content stream processing.
@@ -66,7 +170,8 @@ type cachedImage struct {
 	cs    model.PdfColorspace
 }
 
-func (ctx *imageExtractContext) extractContentStreamImages(contents string, resources *model.PdfPageResources) error {
+func (ctx *imageExtractContext) extractContentStreamImages(contents string,
+	resources *model.PdfPageResources) error {
 	cstreamParser := contentstream.NewContentStreamParser(contents)
 	operations, err := cstreamParser.Parse()
 	if err != nil {
@@ -79,7 +184,8 @@ func (ctx *imageExtractContext) extractContentStreamImages(contents string, reso
 
 	processor := contentstream.NewContentStreamProcessor(*operations)
 	processor.AddHandler(contentstream.HandlerConditionEnumAllOperands, "",
-		func(op *contentstream.ContentStreamOperation, gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
+		func(op *contentstream.ContentStreamOperation, gs contentstream.GraphicsState,
+			resources *model.PdfPageResources) error {
 			return ctx.processOperand(op, gs, resources)
 		})
 
@@ -87,7 +193,8 @@ func (ctx *imageExtractContext) extractContentStreamImages(contents string, reso
 }
 
 // Process individual content stream operands for image extraction.
-func (ctx *imageExtractContext) processOperand(op *contentstream.ContentStreamOperation, gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
+func (ctx *imageExtractContext) processOperand(op *contentstream.ContentStreamOperation,
+	gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
 	if op.Operand == "BI" && len(op.Params) == 1 {
 		// BI: Inline image.
 		iimg, ok := op.Params[0].(*contentstream.ContentStreamInlineImage)
@@ -114,7 +221,8 @@ func (ctx *imageExtractContext) processOperand(op *contentstream.ContentStreamOp
 	return nil
 }
 
-func (ctx *imageExtractContext) extractInlineImage(iimg *contentstream.ContentStreamInlineImage, gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
+func (ctx *imageExtractContext) extractInlineImage(iimg *contentstream.ContentStreamInlineImage,
+	gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
 	img, err := iimg.ToImage(resources)
 	if err != nil {
 		return err
@@ -136,6 +244,7 @@ func (ctx *imageExtractContext) extractInlineImage(iimg *contentstream.ContentSt
 
 	imgMark := ImageMark{
 		Image:  &rgbImg,
+		CTM:    gs.CTM,
 		Width:  gs.CTM.ScalingFactorX(),
 		Height: gs.CTM.ScalingFactorY(),
 		Angle:  gs.CTM.Angle(),
@@ -147,7 +256,9 @@ func (ctx *imageExtractContext) extractInlineImage(iimg *contentstream.ContentSt
 	return nil
 }
 
-func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName, gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
+func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName,
+	gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
+	common.Log.Debug("extractXObjectImage: name=%#q", name)
 	stream, _ := resources.GetXObjectByName(*name)
 	if stream == nil {
 		return nil
@@ -186,6 +297,7 @@ func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName, gs
 	common.Log.Debug("@Do CTM: %s", gs.CTM.String())
 	imgMark := ImageMark{
 		Image:  &rgbImg,
+		CTM:    gs.CTM,
 		Width:  gs.CTM.ScalingFactorX(),
 		Height: gs.CTM.ScalingFactorY(),
 		Angle:  gs.CTM.Angle(),
@@ -198,7 +310,8 @@ func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName, gs
 }
 
 // Go through the XObject Form content stream (recursive processing).
-func (ctx *imageExtractContext) extractFormImages(name *core.PdfObjectName, gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
+func (ctx *imageExtractContext) extractFormImages(name *core.PdfObjectName,
+	gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
 	xform, err := resources.GetXObjectFormByName(*name)
 	if err != nil {
 		return err

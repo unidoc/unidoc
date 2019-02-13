@@ -40,6 +40,33 @@ func NewMatrix(a, b, c, d, tx, ty float64) Matrix {
 	return m
 }
 
+/*
+ * Partial 2D affine matrix decomposition.
+ *  | a b | ➡ | cosθ -sinθ | × | sX  0 |
+ *  | c d |   | sinθ  cosθ |   |  0 sY |
+ *
+ * Scale, Rotate and Translate convert from scales, angles and translations to affine transforms.
+ * ScalingFactor<X,Y>, Angle and Translation convert from affine transforms to scales, angles and
+ * translations.
+ *
+ * Transforms don't have unique angles in this scheme.
+ *  e.g. | 1  0 | maps (1,0)➡(1,0)  0° and (0,1)➡(0,-1) 180°
+ *       | 0 -1 |
+ *
+ * TODO(peterwilliams97): Define a unique decompostion of a 2D affine transform into rotation,
+ *  shear, anisotropic scaling and translation.
+ *
+ * See https://math.stackexchange.com/questions/78137/decomposition-of-a-nonsquare-affine-matrix/
+ *
+ *  A = | a b | ➡  | cosθ -sinθ | × | 1 0 | × |sX  0 |
+ *      | c d |    | sinθ  cosθ |   | q 1 |   | 0 sY |
+ *
+ *  sX = sqrt(a^2 + b^2)
+ *  sY = det(A)/sX = (ad - bc)/sqrt(a^2 + b^2)
+ *   q = (ac + bd)/det(A) = (ac + bd)/(ad - bc)
+ *   θ = atan(-b, a)
+ */
+
 // NewMatrix returns an affine transform matrix that
 //   scales by `xScale`, `yScale`,
 //   rotated by `theta` degrees, and
@@ -83,23 +110,21 @@ func (m Matrix) Mult(b Matrix) Matrix {
 }
 
 // Translate returns `m` with an extra translation of `tx`,`ty`.
-// NOTE: This translation is pre-multiplied so it will be scaled and rotated by `m`.
 func (m Matrix) Translate(tx, ty float64) Matrix {
-	return m.Mult(TranslationMatrix(tx, ty))
+	return NewMatrix(m[0], m[1], m[3], m[4], m[6]+tx, m[7]+ty)
 }
 
 // Scale returns `m` with an extra  scaling of `xScale`,`yScale` to `m`.
 // NOTE: This scaling pre-multiplies `m` so it will be scaled and rotated by `m`.
 func (m Matrix) Scale(xScale, yScale float64) Matrix {
-	return m.Mult(NewMatrix(xScale, xScale, yScale, xScale, 0, 0))
+	return m.Mult(NewMatrix(xScale, 0, 0, yScale, 0, 0))
 }
 
 // Rotate returns `m` with an extra rotation of `theta` degrees.
 // NOTE: This rotation pre-multiplies `m` so it will be scaled and rotated by `m`.
 func (m Matrix) Rotate(theta float64) Matrix {
 	sin, cos := math.Sincos(theta / 180.0 * math.Pi)
-	b := NewMatrix(cos, -sin, sin, cos, 0, 0)
-	return m.Mult(b)
+	return m.Mult(NewMatrix(cos, -sin, sin, cos, 0, 0))
 }
 
 // Translation returns the translation of the affine transform `m`.
@@ -109,12 +134,20 @@ func (m Matrix) Translation() (float64, float64) {
 
 // ScalingFactorX returns the X scaling of the affine transform `m`.
 func (m Matrix) ScalingFactorX() float64 {
-	return math.Hypot(m[0], m[1])
+	sx := math.Hypot(m[0], m[1])
+	if m[0] < 0.0 {
+		return -sx
+	}
+	return sx
 }
 
 // ScalingFactorY returns the Y scaling of the affine transform `m`.
 func (m Matrix) ScalingFactorY() float64 {
-	return math.Hypot(m[3], m[4])
+	sy := math.Hypot(m[3], m[4])
+	if m[4] < 0.0 {
+		return -sy
+	}
+	return sy
 }
 
 // Angle returns the angle of the affine transform in `m` in degrees.

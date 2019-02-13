@@ -735,7 +735,7 @@ func (to *textObject) renderText(data []byte) error {
 			string(r),
 			trm,
 			translation(to.gs.CTM.Mult(to.tm).Mult(td0)),
-			spaceWidth*trm.ScalingFactorX())
+			math.Abs(spaceWidth*trm.ScalingFactorX()))
 		common.Log.Trace("i=%d code=%d mark=%s trm=%s", i, code, mark, trm)
 		to.marks = append(to.marks, mark)
 
@@ -782,7 +782,7 @@ type textMark struct {
 	count         int64           // To help with reading debug logs.
 }
 
-// newTextMark returns an textMark for text `text` rendered with text rendering matrix (TRM) `trm` and end
+// newTextMark returns a textMark for text `text` rendered with text rendering matrix (TRM) `trm` and end
 // of character device coordinates `end`. `spaceWidth` is our best guess at the width of a space in
 // the font the text is rendered in device coordinates.
 func (to *textObject) newTextMark(text string, trm transform.Matrix, end transform.Point, spaceWidth float64) textMark {
@@ -801,7 +801,7 @@ func (to *textObject) newTextMark(text string, trm transform.Matrix, end transfo
 		orient:        orient,
 		orientedStart: translation(trm).Rotate(theta),
 		orientedEnd:   end.Rotate(theta),
-		height:        height,
+		height:        math.Abs(height),
 		spaceWidth:    spaceWidth,
 		count:         to.e.textCount,
 	}
