@@ -25,7 +25,7 @@ import (
 func (e *Extractor) ExtractPageImages() (*PageImages, error) {
 	ctx := &imageExtractContext{}
 
-	err := ctx.extractContentStreamImages(e.contents, e.resources)
+	err := ctx.extractContentStreamImages(e.contents, e.resources, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +46,10 @@ type PageImages struct {
 // ImageMark represents an image drawn on a page and its position in device coordinates.
 // All coordinates are in device coordinates.
 type ImageMark struct {
-	Image *model.Image
-	CTM   transform.Matrix
+	Image  *model.Image
+	CTM    transform.Matrix
+	Inline bool
+	Lossy  bool
 }
 
 // String returns a string describing `mark`.
@@ -59,15 +61,15 @@ func (mark ImageMark) String() string {
 	tx, ty := ctm.Translation()
 	ctmStr := fmt.Sprintf("scale=(%.1fx%.1f) ϴ=%.1f° translation=(%.1f,%.1f)",
 		ctm.ScalingFactorX(), ctm.ScalingFactorY(), ctm.Angle(), tx, ty)
-	return fmt.Sprintf("%s %s %s", imgStr, ctm, ctmStr)
+	return fmt.Sprintf("%s %s %s lossy=%t inline=%t", imgStr, ctm, ctmStr, mark.Lossy, mark.Inline)
 }
 
 // Clip returns `mark`.Image clipped to `box`.
 // TODO(peterwilliams): Return image in orginal colorspace. The github.com/disintegration/imaging
 // library we are using converts all images to image.NRGBA.
 // This function can be used to clip extracted images the same way they are clipped in the PDF they
-// are extracted from to give the same image the user sees in the enclosing PDF
-func (mark ImageMark) Clip(box model.PdfRectangle) (*image.NRGBA, error) {
+// are extracted from to give the same image the user sees in the enclosing PDF.
+func (mark ImageMark) Clip(box model.PdfRectangle, doClip bool) (*image.NRGBA, error) {
 	inv, hasInverse := mark.CTM.Inverse()
 	if !hasInverse {
 		return nil, errors.New("CTM has no inverse")
@@ -77,6 +79,10 @@ func (mark ImageMark) Clip(box model.PdfRectangle) (*image.NRGBA, error) {
 	clp.Urx, clp.Ury = inv.Transform(box.Urx, box.Ury)
 	clp.Llx, clp.Lly = maxFloat(0, clp.Llx), maxFloat(0, clp.Lly)
 	clp.Urx, clp.Ury = minFloat(1, clp.Urx), minFloat(1, clp.Ury)
+
+	if !doClip {
+		clp = model.PdfRectangle{Llx: 0, Lly: 0, Urx: 1, Ury: 1}
+	}
 
 	img, err := mark.Image.ToGoImage()
 	if err != nil {
@@ -107,8 +113,8 @@ func (mark ImageMark) Clip(box model.PdfRectangle) (*image.NRGBA, error) {
 //          rendered. TODO(peterwilliams97) support non-rectangular clipping paths.
 //    If `doScale` is true the image is scaled as it is on the PDF page. `doScale` will typically
 //          only be set false for debugging to check it the scaling is correct.
-func (mark ImageMark) PageView(bbox model.PdfRectangle, doScale bool) (*image.NRGBA, error) {
-	img, err := mark.Clip(bbox)
+func (mark ImageMark) PageView(bbox model.PdfRectangle, doScale, doRotate, doClip bool) (*image.NRGBA, error) {
+	img, err := mark.Clip(bbox, doClip)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +127,7 @@ func (mark ImageMark) PageView(bbox model.PdfRectangle, doScale bool) (*image.NR
 		W, H := int(mark.Image.Width), int(mark.Image.Height)
 		wf, hf := float64(W), float64(H)
 		w, h := ctm.ScalingFactorX(), ctm.ScalingFactorY()
-		fmt.Printf("W,H = %d,%d (%.2f) w,h=%g,%g (%.2f)\n", W, H, hf/wf, w, h, h/w)
+		fmt.Printf("W,H = %d,%d (%.2f) w,h=%g,%g (%.2f) CTM=%s\n", W, H, hf/wf, w, h, h/w, ctm)
 		if w*hf != wf*h {
 			if w*hf > wf*h {
 				W0 := W
@@ -133,6 +139,16 @@ func (mark ImageMark) PageView(bbox model.PdfRectangle, doScale bool) (*image.NR
 				fmt.Printf("H %d->%d (%.2f)\n", H0, H, float64(H)/float64(W))
 			}
 			img = imaging.Resize(img, W, H, imaging.CatmullRom)
+		}
+	}
+
+	if doRotate {
+		theta := mark.CTM.Angle()
+		if theta != 0 {
+			common.Log.Error("*** %3g°", theta)
+			common.Log.Error("<<< %+v", img.Bounds())
+			img = imaging.Rotate(img, 360-theta, color.Black)
+			common.Log.Error(">>> %+v", img.Bounds())
 		}
 	}
 
@@ -163,10 +179,16 @@ type imageExtractContext struct {
 type cachedImage struct {
 	image *model.Image
 	cs    model.PdfColorspace
+	enc   core.StreamEncoder
 }
 
 func (ctx *imageExtractContext) extractContentStreamImages(contents string,
-	resources *model.PdfPageResources) error {
+	resources *model.PdfPageResources, level int) error {
+
+	// common.Log.Error("extractContentStreamImages: %d (%d bytes)", level, len(contents))
+	// fmt.Printf("%s\n", contents)
+	// common.Log.Error("=============================================")
+
 	cstreamParser := contentstream.NewContentStreamParser(contents)
 	operations, err := cstreamParser.Parse()
 	if err != nil {
@@ -196,14 +218,16 @@ func (ctx *imageExtractContext) processOperand(op *contentstream.ContentStreamOp
 		if !ok {
 			return nil
 		}
-
 		return ctx.extractInlineImage(iimg, gs, resources)
+
 	} else if op.Operand == "Do" && len(op.Params) == 1 {
 		// Do: XObject.
 		name, ok := core.GetName(op.Params[0])
 		if !ok {
 			return errTypeCheck
 		}
+
+		// common.Log.Error("** Do : %s ", op)
 
 		_, xtype := resources.GetXObjectByName(*name)
 		switch xtype {
@@ -232,12 +256,15 @@ func (ctx *imageExtractContext) extractInlineImage(iimg *contentstream.ContentSt
 		cs = model.NewPdfColorspaceDeviceGray()
 	}
 
+	lossy := contentstream.IsIILossy(iimg)
+
 	// rgbImg, err := cs.ImageToRGB(*img)
 	// if err != nil {
 	// 	return err
 	// }
 
-	imgMark := ImageMark{img, gs.CTM}
+	imgMark := ImageMark{Image: img, CTM: gs.CTM, Lossy: lossy, Inline: true}
+	// common.Log.Error("***i imgMark=%s", imgMark)
 
 	ctx.extractedImages = append(ctx.extractedImages, imgMark)
 	ctx.inlineImages++
@@ -273,11 +300,15 @@ func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName,
 		cimg = &cachedImage{
 			image: img,
 			cs:    ximg.ColorSpace,
+			enc:   ximg.Filter,
 		}
 		ctx.cacheXObjectImages[stream] = cimg
 	}
 	img := cimg.image
 	// cs := cimg.cs
+
+	// common.Log.Error("*** XObj enc=%s", cimg.enc.GetFilterName())
+	lossy := core.IsLossy(cimg.enc)
 
 	// rgbImg, err := cs.ImageToRGB(*img)
 	// if err != nil {
@@ -285,7 +316,8 @@ func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName,
 	// }
 
 	common.Log.Debug("@Do CTM: %s", gs.CTM.String())
-	imgMark := ImageMark{Image: img, CTM: gs.CTM}
+	imgMark := ImageMark{Image: img, CTM: gs.CTM, Lossy: lossy, Inline: false}
+	// common.Log.Error("***x imgMark=%s", imgMark)
 	common.Log.Debug("@Do imgMark: %s", imgMark.String())
 	ctx.extractedImages = append(ctx.extractedImages, imgMark)
 	ctx.xObjectImages++
@@ -297,6 +329,7 @@ func (ctx *imageExtractContext) extractXObjectImage(name *core.PdfObjectName,
 // Go through the XObject Form content stream (recursive processing).
 func (ctx *imageExtractContext) extractFormImages(name *core.PdfObjectName,
 	gs contentstream.GraphicsState, resources *model.PdfPageResources) error {
+
 	xform, err := resources.GetXObjectFormByName(*name)
 	if err != nil {
 		return err
@@ -317,7 +350,7 @@ func (ctx *imageExtractContext) extractFormImages(name *core.PdfObjectName,
 	}
 
 	// Process the content stream in the Form object too:
-	err = ctx.extractContentStreamImages(string(formContent), formResources)
+	err = ctx.extractContentStreamImages(string(formContent), formResources, 1)
 	if err != nil {
 		return err
 	}

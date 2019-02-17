@@ -105,6 +105,8 @@ func TestImageExtractionBasic(t *testing.T) {
 		for i, img := range pageImages.Images {
 			expected := ImageMark{CTM: tcase.Expected[i].matrix()}
 			img.Image = nil // Discard image data.
+			img.Inline = false
+			img.Lossy = false
 			assert.Equalf(t, expected, img, "i = %d", i)
 		}
 	}

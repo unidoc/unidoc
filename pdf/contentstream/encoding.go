@@ -16,7 +16,15 @@ import (
 	"github.com/unidoc/unidoc/pdf/core"
 )
 
-// Creates the encoder for the inline image's Filter and DecodeParms.
+func IsIILossy(inlineImage *ContentStreamInlineImage) bool {
+	enc, err := newEncoderFromInlineImage(inlineImage)
+	if err != nil {
+		return false
+	}
+	return core.IsLossy(enc)
+}
+
+// newEncoderFromInlineImage creates the encoder for `inlineImage`'s Filter and DecodeParms.
 func newEncoderFromInlineImage(inlineImage *ContentStreamInlineImage) (core.StreamEncoder, error) {
 	if inlineImage.Filter == nil {
 		// No filter, return raw data back.
@@ -57,6 +65,7 @@ func newEncoderFromInlineImage(inlineImage *ContentStreamInlineImage) (core.Stre
 	// From Table 94 p. 224 (PDF32000_2008):
 	// Additional Abbreviations in an Inline Image Object:
 
+	// common.Log.Error("*** Inline image name: %+q", *filterName)
 	switch *filterName {
 	case "AHx", "ASCIIHexDecode":
 		return core.NewASCIIHexEncoder(), nil
@@ -83,6 +92,8 @@ func newEncoderFromInlineImage(inlineImage *ContentStreamInlineImage) (core.Stre
 // only when a multi filter is used.
 func newFlateEncoderFromInlineImage(inlineImage *ContentStreamInlineImage, decodeParams *core.PdfObjectDictionary) (*core.FlateEncoder, error) {
 	encoder := core.NewFlateEncoder()
+	common.Log.Debug("decodeParams 0=%#v", decodeParams)
+	common.Log.Debug("encoder 0=%#v", encoder)
 
 	// If decodeParams not provided, see if we can get from the stream.
 	if decodeParams == nil {
@@ -90,14 +101,16 @@ func newFlateEncoderFromInlineImage(inlineImage *ContentStreamInlineImage, decod
 		if obj != nil {
 			dp, isDict := obj.(*core.PdfObjectDictionary)
 			if !isDict {
-				common.Log.Debug("Error: DecodeParms not a dictionary (%T)", obj)
+				common.Log.Debug("ERROR: DecodeParms not a dictionary (%T)", obj)
 				return nil, fmt.Errorf("invalid DecodeParms")
 			}
 			decodeParams = dp
+			common.Log.Debug("decodeParams 1=%s", decodeParams.String())
 		}
 	}
 	if decodeParams == nil {
 		// Can safely return here if no decode params, as the following depend on the decode params.
+		common.Log.Debug("encoder 1=%#v", encoder)
 		return encoder, nil
 	}
 
@@ -108,7 +121,7 @@ func newFlateEncoderFromInlineImage(inlineImage *ContentStreamInlineImage, decod
 	} else {
 		predictor, ok := obj.(*core.PdfObjectInteger)
 		if !ok {
-			common.Log.Debug("Error: Predictor specified but not numeric (%T)", obj)
+			common.Log.Debug("ERROR: Predictor specified but not numeric (%T)", obj)
 			return nil, fmt.Errorf("invalid Predictor")
 		}
 		encoder.Predictor = int(*predictor)
@@ -145,12 +158,13 @@ func newFlateEncoderFromInlineImage(inlineImage *ContentStreamInlineImage, decod
 		if obj != nil {
 			colors, ok := obj.(*core.PdfObjectInteger)
 			if !ok {
-				return nil, fmt.Errorf("predictor colors not an integer")
+				return nil, fmt.Errorf("predictor colors not an integer: %T", obj)
 			}
 			encoder.Colors = int(*colors)
 		}
 	}
 
+	common.Log.Debug("encoder 2=%#v", encoder)
 	return encoder, nil
 }
 

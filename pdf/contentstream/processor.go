@@ -228,8 +228,12 @@ func (proc *ContentStreamProcessor) Process(resources *model.PdfPageResources) e
 		switch op.Operand {
 		case "q":
 			proc.graphicsStack.Push(proc.graphicsState)
+			// common.Log.Error("*!* %s\n\tpu%s %3g° -- %d", *op,
+			// 	proc.graphicsState.CTM.String(), proc.graphicsState.CTM.Angle(), len(proc.graphicsStack))
 		case "Q":
 			proc.graphicsState = proc.graphicsStack.Pop()
+			// common.Log.Error("*@* %s \n\tpp%s %3g° -- %d", *op,
+			// 	proc.graphicsState.CTM.String(), proc.graphicsState.CTM.Angle(), len(proc.graphicsStack))
 
 		// Color operations (Table 74 p. 179)
 		case "CS":
@@ -580,7 +584,10 @@ func (proc *ContentStreamProcessor) handleCommand_cm(op *ContentStreamOperation,
 		return err
 	}
 	m := transform.NewMatrix(f[0], f[1], f[2], f[3], f[4], f[5])
+	// before := proc.graphicsState.CTM
 	proc.graphicsState.CTM.Concat(m)
+	// common.Log.Error("%s cm\n\t  %s %3g°\n\t->%s %3g°", m, before, before.Angle(),
+	// 	proc.graphicsState.CTM, proc.graphicsState.CTM.Angle())
 
 	return nil
 }

@@ -507,7 +507,9 @@ func (font *PdfFont) GetRuneCharMetrics(r rune) (fonts.CharMetrics, bool) {
 		if ok {
 			return m, true
 		}
-		common.Log.Debug("ERROR: Metrics not found for rune=%+v %s", r, font)
+		if r != 32 {
+			common.Log.Debug("ERROR: Metrics not found for rune=%+v %s", r, font)
+		}
 	}
 	if descriptor, err := font.GetFontDescriptor(); err == nil && descriptor != nil {
 		return fonts.CharMetrics{Wx: descriptor.missingWidth}, true

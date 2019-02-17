@@ -48,7 +48,8 @@ func (e *Extractor) ExtractPageText() (*PageText, int, int, error) {
 // extractPageText returns the text contents of content stream `e` and resouces `resources` as a
 // PageText.
 // This can be called on a page or a form XObject.
-func (e *Extractor) extractPageText(contents string, resources *model.PdfPageResources, level int) (*PageText, int, int, error) {
+func (e *Extractor) extractPageText(contents string, resources *model.PdfPageResources,
+	level int) (*PageText, int, int, error) {
 
 	common.Log.Trace("extractPageText: level=%d", level)
 	pageText := &PageText{}
@@ -727,9 +728,9 @@ func (to *textObject) renderText(data []byte) error {
 		td0 := translationMatrix(t0)
 		td := translationMatrix(t)
 
-		common.Log.Trace("\"%c\" stateMatrix=%s CTM=%s Tm=%s", r, stateMatrix, to.gs.CTM, to.tm)
-		common.Log.Trace("tfs=%.3f th=%.3f Tc=%.3f w=%.3f (Tw=%.3f)", tfs, th, state.tc, w, state.tw)
-		common.Log.Trace("m=%s c=%+v t0=%+v td0=%s trm0=%s", m, c, t0, td0, td0.Mult(to.tm).Mult(to.gs.CTM))
+		common.Log.Debug("\"%c\" stateMatrix=%s CTM=%s Tm=%s", r, stateMatrix, to.gs.CTM, to.tm)
+		common.Log.Debug("tfs=%.3f th=%.3f Tc=%.3f w=%.3f (Tw=%.3f)", tfs, th, state.tc, w, state.tw)
+		common.Log.Debug("m=%s c=%+v t0=%+v td0=%s trm0=%s", m, c, t0, td0, td0.Mult(to.tm).Mult(to.gs.CTM))
 
 		mark := to.newTextMark(
 			string(r),
@@ -773,19 +774,21 @@ func (to *textObject) moveTo(tx, ty float64) {
 // textMark represents text drawn on a page and its position in device coordinates.
 // All dimensions are in device coordinates.
 type textMark struct {
-	text          string          // The text.
-	orient        int             // The text orientation in degrees. This is the current TRM rounded to 10°.
-	orientedStart transform.Point // Left of text in orientation where text is horizontal.
-	orientedEnd   transform.Point // Right of text in orientation where text is horizontal.
-	height        float64         // Text height.
-	spaceWidth    float64         // Best guess at the width of a space in the font the text was rendered with.
-	count         int64           // To help with reading debug logs.
+	text          string             // The text.
+	bbox          model.PdfRectangle // Text orientation in degrees.
+	orient        int                // The text orientation in degrees. This is the current TRM rounded to 10°.
+	orientedStart transform.Point    // Left of text in orientation where text is horizontal.
+	orientedEnd   transform.Point    // Right of text in orientation where text is horizontal.
+	height        float64            // Text height.
+	spaceWidth    float64            // Best guess at the width of a space in the font the text was rendered with.
+	count         int64              // To help with reading debug logs.
 }
 
-// newTextMark returns a textMark for text `text` rendered with text rendering matrix (TRM) `trm` and end
-// of character device coordinates `end`. `spaceWidth` is our best guess at the width of a space in
-// the font the text is rendered in device coordinates.
-func (to *textObject) newTextMark(text string, trm transform.Matrix, end transform.Point, spaceWidth float64) textMark {
+// newTextMark returns a textMark for text `text` rendered with text rendering matrix (TRM) `trm`
+// and end of character device coordinates `end`. `spaceWidth` is our best guess at the width of a
+// space in the font the text is rendered in device coordinates.
+func (to *textObject) newTextMark(text string, trm transform.Matrix, end transform.Point,
+	spaceWidth float64) textMark {
 	to.e.textCount++
 	theta := trm.Angle()
 	orient := nearestMultiple(theta, 10)
@@ -796,10 +799,14 @@ func (to *textObject) newTextMark(text string, trm transform.Matrix, end transfo
 		height = trm.ScalingFactorX()
 	}
 
+	start := translation(trm)
+	bbox := model.PdfRectangle{Llx: start.X, Lly: start.Y, Urx: end.X, Ury: end.Y}
+
 	return textMark{
 		text:          text,
 		orient:        orient,
-		orientedStart: translation(trm).Rotate(theta),
+		bbox:          bbox,
+		orientedStart: start.Rotate(theta),
 		orientedEnd:   end.Rotate(theta),
 		height:        math.Abs(height),
 		spaceWidth:    spaceWidth,
@@ -836,16 +843,30 @@ type PageText struct {
 
 // String returns a string describing `pt`.
 func (pt PageText) String() string {
-	parts := []string{fmt.Sprintf("PageText: %d elements", pt.length())}
+	parts := []string{fmt.Sprintf("PageText: %d elements", pt.Length())}
 	for _, t := range pt.marks {
 		parts = append(parts, t.String())
 	}
 	return strings.Join(parts, "\n")
 }
 
-// length returns the number of elements in `pt.marks`.
-func (pt PageText) length() int {
+// Length returns the number of elements in `pt.marks`.
+func (pt PageText) Length() int {
 	return len(pt.marks)
+}
+
+type TextMark struct {
+	BBox model.PdfRectangle
+	Text string
+}
+
+// Length returns the number of elements in `pt.marks`.
+func (pt PageText) Marks() []TextMark {
+	marks := make([]TextMark, len(pt.marks))
+	for i, t := range pt.marks {
+		marks[i] = TextMark{BBox: t.bbox, Text: t.text}
+	}
+	return marks
 }
 
 // height returns the max height of the elements in `pt.marks`.
@@ -867,9 +888,9 @@ func (pt PageText) ToText() string {
 	common.Log.Trace("ToText: %d elements fontHeight=%.1f tol=%.1f", len(pt.marks), fontHeight, tol)
 
 	// Uncomment the 2 following Trace statements to see the effects of sorting/
-	// common.Log.Trace("ToText: Before sorting %s", pt)
+	common.Log.Debug("ToText: Before sorting %s", pt)
 	pt.sortPosition(tol)
-	// common.Log.Trace("ToText: After sorting %s", pt)
+	common.Log.Debug("ToText: After sorting %s", pt)
 
 	lines := pt.toLines(tol)
 	texts := make([]string, 0, len(lines))
@@ -1022,7 +1043,7 @@ type exponAve struct {
 	running bool    // Has `ave` been set?
 }
 
-// update updates the exponential average `exp.ave` and returns it.
+// update updates the exponential average `exp`.ave with latest value `x` and returns `exp`.ave.
 func (exp *exponAve) update(x float64) float64 {
 	if !exp.running {
 		exp.ave = x
