@@ -843,24 +843,22 @@ type PageText struct {
 
 // String returns a string describing `pt`.
 func (pt PageText) String() string {
-	parts := []string{fmt.Sprintf("PageText: %d elements", pt.Length())}
+	parts := []string{fmt.Sprintf("PageText: %d elements", len(pt.marks))}
 	for _, t := range pt.marks {
 		parts = append(parts, t.String())
 	}
 	return strings.Join(parts, "\n")
 }
 
-// Length returns the number of elements in `pt.marks`.
-func (pt PageText) Length() int {
-	return len(pt.marks)
-}
-
+// TextMark is the public view of a textMark.
+// Currently this is the text contents and a bounding box.
 type TextMark struct {
 	BBox model.PdfRectangle
 	Text string
 }
 
-// Length returns the number of elements in `pt.marks`.
+// Marks returns a TextMark for every text mark in `pt`. This is the publically accessible view of
+// text marks.
 func (pt PageText) Marks() []TextMark {
 	marks := make([]TextMark, len(pt.marks))
 	for i, t := range pt.marks {
