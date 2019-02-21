@@ -129,6 +129,12 @@ func NewPdfAppender(reader *PdfReader) (*PdfAppender, error) {
 	for _, p := range a.roReader.PageList {
 		a.pages = append(a.pages, p)
 	}
+
+	// Load interactive forms and fields.
+	a.roReader.AcroForm, err = a.roReader.loadForms()
+	if err != nil {
+		return nil, err
+	}
 	a.acroForm = a.roReader.AcroForm
 
 	return a, nil
@@ -394,6 +400,7 @@ func (a *PdfAppender) Sign(pageNum int, field *PdfFieldSignature) error {
 	if signature == nil {
 		return errors.New("signature dictionary cannot be nil")
 	}
+	a.addNewObjects(signature.container)
 
 	// Get a copy of the selected page.
 	pageIndex := pageNum - 1
@@ -402,33 +409,25 @@ func (a *PdfAppender) Sign(pageNum int, field *PdfFieldSignature) error {
 	}
 	page := a.pages[pageIndex].Duplicate()
 
-	// Initialize signature.
-	if err := signature.Initialize(); err != nil {
-		return err
-	}
-	a.addNewObjects(signature.container)
-
 	// Add signature field annotations to the page annotations.
-	for _, annotation := range field.Annotations {
-		annotation.P = page.ToPdfObject()
-		page.Annotations = append(page.Annotations, annotation.PdfAnnotation)
+	field.P = page.ToPdfObject()
+	if field.T == nil || field.T.String() == "" {
+		field.T = core.MakeString(fmt.Sprintf("Signature %d", pageNum))
 	}
+
+	page.Annotations = append(page.Annotations, field.PdfAnnotationWidget.PdfAnnotation)
 
 	// Add signature field to the form.
-	acroForm := a.Reader.AcroForm
+	acroForm := a.acroForm
 	if acroForm == nil {
-		acroForm = NewPdfAcroForm()
+		acroForm = a.Reader.AcroForm
+		if acroForm == nil {
+			acroForm = NewPdfAcroForm()
+		}
 	}
-
 	acroForm.SigFlags = core.MakeInteger(3)
-	acroForm.DA = core.MakeString("/F1 0 Tf 0 g")
-	n2ResourcesFont := core.MakeDict()
-	n2ResourcesFont.Set("F1", DefaultFont().ToPdfObject())
-	acroForm.DR = NewPdfPageResources()
-	acroForm.DR.Font = n2ResourcesFont
 
 	fields := append(acroForm.AllFields(), field.PdfField)
-
 	acroForm.Fields = &fields
 	a.ReplaceAcroForm(acroForm)
 
@@ -536,7 +535,7 @@ func (a *PdfAppender) Write(w io.Writer) error {
 		a.addNewObjects(obj)
 		kids.Append(obj)
 	}
-	if a.acroForm != nil && a.acroForm != a.roReader.AcroForm {
+	if a.acroForm != nil {
 		writer.SetForms(a.acroForm)
 	}
 
