@@ -885,15 +885,15 @@ func (pt PageText) ToText() string {
 	tol := minFloat(fontHeight*0.2, 5.0)
 	common.Log.Trace("ToText: %d elements fontHeight=%.1f tol=%.1f", len(pt.marks), fontHeight, tol)
 
-	// Uncomment the 2 following Trace statements to see the effects of sorting/
-	common.Log.Debug("ToText: Before sorting %s", pt)
+	// Uncomment the 2 following Trace statements to see the effects of sorting.
+	// common.Log.Debug("ToText: Before sorting %s", pt)
 	pt.sortPosition(tol)
-	common.Log.Debug("ToText: After sorting %s", pt)
+	// common.Log.Debug("ToText: After sorting %s", pt)
 
 	lines := pt.toLines(tol)
-	texts := make([]string, 0, len(lines))
-	for _, l := range lines {
-		texts = append(texts, l.text)
+	texts := make([]string, len(lines))
+	for i, l := range lines {
+		texts[i] = l.text
 	}
 	return strings.Join(texts, "\n")
 }
@@ -1058,9 +1058,9 @@ func (exp *exponAve) update(x float64) float64 {
 // newLine returns the textLine representation of strings `words` with y coordinate `y` and x
 // coordinates `x`.
 func newLine(y float64, x []float64, words []string) textLine {
-	dxList := make([]float64, 0, len(x))
+	dxList := make([]float64, len(x)-1)
 	for i := 1; i < len(x); i++ {
-		dxList = append(dxList, x[i]-x[i-1])
+		dxList[i-1] = x[i] - x[i-1]
 	}
 	return textLine{y: y, dxList: dxList, text: strings.Join(words, ""), words: words}
 }
