@@ -24,7 +24,7 @@ type adobePKCS7Detached struct {
 }
 
 // NewAdobePKCS7Detached creates a new Adobe.PPKMS/Adobe.PPKLite adbe.pkcs7.detached signature handler.
-// The both parameters may be nil for the signature validation.
+// Both parameters may be nil for the signature validation.
 func NewAdobePKCS7Detached(privateKey *rsa.PrivateKey, certificate *x509.Certificate) (model.SignatureHandler, error) {
 	return &adobePKCS7Detached{certificate: certificate, privateKey: privateKey}, nil
 }
