@@ -775,7 +775,7 @@ func (to *textObject) moveTo(tx, ty float64) {
 // All dimensions are in device coordinates.
 type textMark struct {
 	text          string             // The text.
-	bbox          model.PdfRectangle // Text orientation in degrees.
+	bbox          model.PdfRectangle // Text bounding box.
 	orient        int                // The text orientation in degrees. This is the current TRM rounded to 10°.
 	orientedStart transform.Point    // Left of text in orientation where text is horizontal.
 	orientedEnd   transform.Point    // Right of text in orientation where text is horizontal.
@@ -893,9 +893,51 @@ func (pt PageText) ToText() string {
 	lines := pt.toLines(tol)
 	texts := make([]string, len(lines))
 	for i, l := range lines {
-		texts[i] = l.text
+		texts[i] = strings.Join(l.words, "")
 	}
 	return strings.Join(texts, "\n")
+}
+
+type TextLocation struct {
+	Offset int
+	BBox   model.PdfRectangle
+}
+
+// ToTextLocation returns the contents of `pt` as a single string.
+func (pt PageText) ToTextLocation() (string, []TextLocation) {
+	fontHeight := pt.height()
+	// We sort with a y tolerance to allow for subscripts, diacritics etc.
+	tol := minFloat(fontHeight*0.2, 5.0)
+	common.Log.Trace("ToText: %d elements fontHeight=%.1f tol=%.1f", len(pt.marks), fontHeight, tol)
+
+	// Uncomment the 2 following Trace statements to see the effects of sorting.
+	// common.Log.Debug("ToText: Before sorting %s", pt)
+	pt.sortPosition(tol)
+	// common.Log.Debug("ToText: After sorting %s", pt)
+
+	lines := pt.toLines(tol)
+
+	texts := make([]string, len(lines))
+	for i, l := range lines {
+		texts[i] = strings.Join(l.words, "")
+	}
+	text := strings.Join(texts, "\n")
+
+	var locations []TextLocation
+	offset := 0
+	for _, l := range lines {
+		for j, w := range l.words {
+			locations = append(locations, TextLocation{offset, l.bboxes[j]})
+			offset += len(w) + 1
+		}
+	}
+
+	return text, locations
+}
+
+func GetBBox(index []TextLocation, offset int) (model.PdfRectangle, bool) {
+	i := sort.Search(len(index), func(i int) bool { return index[i].Offset >= offset })
+	return index[i].BBox, true
 }
 
 // sortPosition sorts a text list by its elements' position on a page.
@@ -916,10 +958,12 @@ func (pt *PageText) sortPosition(tol float64) {
 
 // textLine represents a line of text on a page.
 type textLine struct {
-	y      float64   // y position of line.
-	dxList []float64 // x distance between successive words in line.
-	text   string    // text in the line.
-	words  []string  // words in the line.
+	x      float64              // x position of line.
+	y      float64              // y position of line.
+	h      float64              // height of line text.
+	dxList []float64            // x distance between successive words in line.
+	words  []string             // words in the line.
+	bboxes []model.PdfRectangle // bounding boxes of words.
 }
 
 // toLines returns the text and positions in `pt.marks` as a slice of textLine.
@@ -950,7 +994,8 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 	}
 	var lines []textLine
 	var words []string
-	var x []float64
+	var xx []float64
+	var bboxes []model.PdfRectangle
 	y := pt.marks[0].orientedStart.Y
 
 	scanning := false
@@ -962,7 +1007,7 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 	for _, t := range pt.marks {
 		if t.orientedStart.Y+tol < y {
 			if len(words) > 0 {
-				line := newLine(y, x, words)
+				line := newLine(y, xx, words, bboxes)
 				if averageCharWidth.running {
 					// FIXME(peterwilliams97): Fix and reinstate combineDiacritics.
 					// line = combineDiacritics(line, averageCharWidth.ave)
@@ -971,7 +1016,8 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 				lines = append(lines, line)
 			}
 			words = []string{}
-			x = []float64{}
+			xx = []float64{}
+			bboxes = []model.PdfRectangle{}
 			y = t.orientedStart.Y
 			scanning = false
 		}
@@ -980,7 +1026,7 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 		// We use a heuristic from PdfBox: If the next character starts to the right of where a
 		// character after a space at "normal spacing" would start, then there is a space before it.
 		// The tricky thing to guess here is the width of a space at normal spacing.
-		// We follow PdfBox and use minFloat(deltaSpace, deltaCharWidth).
+		// We follow PdfBox and use min(deltaSpace, deltaCharWidth).
 		deltaSpace := 0.0
 		if t.spaceWidth == 0 {
 			deltaSpace = math.MaxFloat64
@@ -1005,18 +1051,20 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 
 		if isSpace {
 			words = append(words, " ")
-			x = append(x, (lastEndX+t.orientedStart.X)*0.5)
+			bboxes = append(bboxes, model.PdfRectangle{})
+			xx = append(xx, (lastEndX+t.orientedStart.X)*0.5)
 		}
 
 		// Add the text to the line.
 		lastEndX = t.orientedEnd.X
 		words = append(words, t.text)
-		x = append(x, t.orientedStart.X)
+		bboxes = append(bboxes, t.bbox)
+		xx = append(xx, t.orientedStart.X)
 		scanning = true
 		common.Log.Trace("lastEndX=%.2f", lastEndX)
 	}
 	if len(words) > 0 {
-		line := newLine(y, x, words)
+		line := newLine(y, xx, words, bboxes)
 		if averageCharWidth.running {
 			line = removeDuplicates(line, averageCharWidth.ave)
 		}
@@ -1056,13 +1104,13 @@ func (exp *exponAve) update(x float64) float64 {
 }
 
 // newLine returns the textLine representation of strings `words` with y coordinate `y` and x
-// coordinates `x`.
-func newLine(y float64, x []float64, words []string) textLine {
-	dxList := make([]float64, len(x)-1)
-	for i := 1; i < len(x); i++ {
-		dxList[i-1] = x[i] - x[i-1]
+// coordinates `xx` and height `h`.
+func newLine(y float64, xx []float64, words []string, bboxes []model.PdfRectangle) textLine {
+	dxList := make([]float64, len(xx)-1)
+	for i := 1; i < len(xx); i++ {
+		dxList[i-1] = xx[i] - xx[i-1]
 	}
-	return textLine{y: y, dxList: dxList, text: strings.Join(words, ""), words: words}
+	return textLine{x: xx[0], y: y, dxList: dxList, words: words, bboxes: bboxes}
 }
 
 // removeDuplicates returns `line` with duplicate characters removed. `charWidth` is the average
@@ -1086,7 +1134,7 @@ func removeDuplicates(line textLine, charWidth float64) textLine {
 		}
 		w0 = w
 	}
-	return textLine{y: line.y, dxList: dxList, text: strings.Join(words, ""), words: words}
+	return textLine{x: line.x, y: line.y, dxList: dxList, words: words, bboxes: line.bboxes}
 }
 
 // combineDiacritics returns `line` with diacritics close to characters combined with the characters.
@@ -1148,7 +1196,8 @@ func combineDiacritics(line textLine, charWidth float64) textLine {
 			len(words), words, len(dxList), dxList)
 		return line
 	}
-	return textLine{y: line.y, dxList: dxList, text: strings.Join(words, ""), words: words}
+
+	return textLine{x: line.x, y: line.y, dxList: dxList, words: words, bboxes: line.bboxes}
 }
 
 // combine combines any diacritics in `parts` with the single non-diacritic character in `parts`.
