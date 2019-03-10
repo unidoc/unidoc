@@ -97,7 +97,7 @@ func TestImageExtractionBasic(t *testing.T) {
 		pageExtractor, err := New(page)
 		require.NoError(t, err)
 
-		pageImages, err := pageExtractor.ExtractPageImages()
+		pageImages, err := pageExtractor.ExtractPageImages(nil)
 		require.NoError(t, err)
 
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
@@ -187,7 +187,7 @@ func TestImageExtractionNestedCM(t *testing.T) {
 		pageExtractor, err := New(page)
 		require.NoError(t, err)
 
-		pageImages, err := pageExtractor.ExtractPageImages()
+		pageImages, err := pageExtractor.ExtractPageImages(nil)
 		require.NoError(t, err)
 
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
@@ -233,7 +233,7 @@ func TestImageExtractionMulti(t *testing.T) {
 		pageExtractor, err := New(page)
 		require.NoError(t, err)
 
-		pageImages, err := pageExtractor.ExtractPageImages()
+		pageImages, err := pageExtractor.ExtractPageImages(nil)
 		require.NoError(t, err)
 
 		assert.Equal(t, tcase.NumImages, len(pageImages.Images))
@@ -314,7 +314,7 @@ func TestImageExtractionRealWorld(t *testing.T) {
 		pageExtractor, err := New(page)
 		require.NoError(t, err)
 
-		pageImages, err := pageExtractor.ExtractPageImages()
+		pageImages, err := pageExtractor.ExtractPageImages(nil)
 		require.NoError(t, err)
 
 		if len(tcase.Expected) == 0 {
@@ -340,7 +340,7 @@ func BenchmarkImageExtraction(b *testing.B) {
 		pageExtractor, err := New(page)
 		require.NoError(b, err)
 
-		pageImages, err := pageExtractor.ExtractPageImages()
+		pageImages, err := pageExtractor.ExtractPageImages(nil)
 		require.NoError(b, err)
 
 		cnt += len(pageImages.Images)
