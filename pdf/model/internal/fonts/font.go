@@ -8,16 +8,14 @@ package fonts
 import (
 	"fmt"
 
-	"github.com/unidoc/unidoc/pdf/core"
 	"github.com/unidoc/unidoc/pdf/internal/textencoding"
 )
 
 // Font represents a font which is a series of glyphs. Character codes from PDF strings can be
-// mapped to and from glyphs.  Each glyph has metrics.
+// mapped to and from glyphs. Each glyph has metrics.
 type Font interface {
 	Encoder() textencoding.TextEncoder
 	GetRuneMetrics(r rune) (CharMetrics, bool)
-	ToPdfObject() core.PdfObject
 }
 
 // CharMetrics represents width and height metrics of a glyph.
