@@ -431,7 +431,7 @@ func (w *PdfWriter) AddPage(page *PdfPage) error {
 
 	}
 	if *otype != "Page" {
-		return errors.New("Type != Page (Required).")
+		return errors.New("field Type != Page (Required)")
 	}
 
 	// Copy inherited fields if missing.
@@ -676,17 +676,17 @@ type EncryptOptions struct {
 type EncryptionAlgorithm int
 
 const (
-	// RC4_128bit uses RC4 encryption (128 bit)
-	RC4_128bit = EncryptionAlgorithm(iota)
-	// AES_128bit uses AES encryption (128 bit, PDF 1.6)
-	AES_128bit
-	// AES_256bit uses AES encryption (256 bit, PDF 2.0)
-	AES_256bit
+	// RC4128bit uses RC4 encryption (128 bit)
+	RC4128bit = EncryptionAlgorithm(iota)
+	// AES128bit uses AES encryption (128 bit, PDF 1.6)
+	AES128bit
+	// AES256bit uses AES encryption (256 bit, PDF 2.0)
+	AES256bit
 )
 
 // Encrypt encrypts the output file with a specified user/owner password.
 func (w *PdfWriter) Encrypt(userPass, ownerPass []byte, options *EncryptOptions) error {
-	algo := RC4_128bit
+	algo := RC4128bit
 	if options != nil {
 		algo = options.Algorithm
 	}
@@ -697,11 +697,11 @@ func (w *PdfWriter) Encrypt(userPass, ownerPass []byte, options *EncryptOptions)
 
 	var cf crypt.Filter
 	switch algo {
-	case RC4_128bit:
+	case RC4128bit:
 		cf = crypt.NewFilterV2(16)
-	case AES_128bit:
+	case AES128bit:
 		cf = crypt.NewFilterAESV2()
-	case AES_256bit:
+	case AES256bit:
 		cf = crypt.NewFilterAESV3()
 	default:
 		return fmt.Errorf("unsupported algorithm: %v", options.Algorithm)
