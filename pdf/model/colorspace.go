@@ -1544,7 +1544,7 @@ func (cs *PdfColorspaceLab) ToPdfObject() core.PdfObject {
 
 // ColorFromFloats returns a new PdfColor based on the input slice of color
 // components. The slice should contain three elements representing the
-// L (range 0-100), A (range -100-100) and B (range -100,100) components of
+// L (range 0-100), A (range -100-100) and B (range -100-100) components of
 // the color.
 func (cs *PdfColorspaceLab) ColorFromFloats(vals []float64) (PdfColor, error) {
 	if len(vals) != 3 {
