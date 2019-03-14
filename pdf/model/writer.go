@@ -22,7 +22,6 @@ import (
 	"github.com/unidoc/unidoc/pdf/core"
 	"github.com/unidoc/unidoc/pdf/core/security"
 	"github.com/unidoc/unidoc/pdf/core/security/crypt"
-	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
 
 type crossReference struct {
@@ -504,7 +503,7 @@ func procPage(p *PdfPage) {
 	}
 
 	// Add font as needed.
-	f := fonts.NewFontHelvetica()
+	f := DefaultFont()
 	p.Resources.SetFontByName("UF1", f.ToPdfObject())
 
 	var ops []string

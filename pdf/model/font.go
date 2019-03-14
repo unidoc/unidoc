@@ -13,14 +13,17 @@ import (
 
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/core"
+
 	"github.com/unidoc/unidoc/pdf/internal/cmap"
 	"github.com/unidoc/unidoc/pdf/internal/textencoding"
-	"github.com/unidoc/unidoc/pdf/model/fonts"
+	"github.com/unidoc/unidoc/pdf/model/internal/fonts"
 )
 
 // pdfFont is an internal interface for fonts that can be stored in PDF documents.
 type pdfFont interface {
 	fonts.Font
+	// ToPdfObject returns a PDF representation of the font and implements interface Model.
+	ToPdfObject() core.PdfObject
 	// getFontDescriptor returns the font descriptor of the font.
 	getFontDescriptor() *PdfFontDescriptor
 	// baseFields returns fields that are common for PDF fonts.
@@ -92,11 +95,15 @@ func (font *PdfFont) ToUnicode() string {
 
 // DefaultFont returns the default font, which is currently the built in Helvetica.
 func DefaultFont() *PdfFont {
-	std := stdFontToSimpleFont(fonts.NewFontHelvetica())
+	helvetica, ok := fonts.NewStdFontByName(HelveticaName)
+	if !ok {
+		panic("Helvetica should always be available")
+	}
+	std := stdFontToSimpleFont(helvetica)
 	return &PdfFont{context: &std}
 }
 
-func newStandard14Font(basefont fonts.StdFontName) (pdfFontSimple, error) {
+func newStandard14Font(basefont StdFontName) (pdfFontSimple, error) {
 	fnt, ok := fonts.NewStdFontByName(basefont)
 	if !ok {
 		return pdfFontSimple{}, ErrFontNotSupported
@@ -105,9 +112,30 @@ func newStandard14Font(basefont fonts.StdFontName) (pdfFontSimple, error) {
 	return std, nil
 }
 
+// StdFontName represents name of a standard font.
+type StdFontName = fonts.StdFontName
+
+// Names of the standard 14 fonts.
+var (
+	CourierName              = fonts.CourierName
+	CourierBoldName          = fonts.CourierBoldName
+	CourierObliqueName       = fonts.CourierObliqueName
+	CourierBoldObliqueName   = fonts.CourierBoldObliqueName
+	HelveticaName            = fonts.HelveticaName
+	HelveticaBoldName        = fonts.HelveticaBoldName
+	HelveticaObliqueName     = fonts.HelveticaObliqueName
+	HelveticaBoldObliqueName = fonts.HelveticaBoldObliqueName
+	SymbolName               = fonts.SymbolName
+	ZapfDingbatsName         = fonts.ZapfDingbatsName
+	TimesRomanName           = fonts.TimesRomanName
+	TimesBoldName            = fonts.TimesBoldName
+	TimesItalicName          = fonts.TimesItalicName
+	TimesBoldItalicName      = fonts.TimesBoldItalicName
+)
+
 // NewStandard14Font returns the standard 14 font named `basefont` as a *PdfFont, or an error if it
 // `basefont` is not one of the standard 14 font names.
-func NewStandard14Font(basefont fonts.StdFontName) (*PdfFont, error) {
+func NewStandard14Font(basefont StdFontName) (*PdfFont, error) {
 	std, err := newStandard14Font(basefont)
 	if err != nil {
 		return nil, err
@@ -118,7 +146,7 @@ func NewStandard14Font(basefont fonts.StdFontName) (*PdfFont, error) {
 // NewStandard14FontMustCompile returns the standard 14 font named `basefont` as a *PdfFont.
 // If `basefont` is one of the 14 Standard14Font values defined above then NewStandard14FontMustCompile
 // is guaranteed to succeed.
-func NewStandard14FontMustCompile(basefont fonts.StdFontName) *PdfFont {
+func NewStandard14FontMustCompile(basefont StdFontName) *PdfFont {
 	font, err := NewStandard14Font(basefont)
 	if err != nil {
 		panic(fmt.Errorf("invalid Standard14Font %#q", basefont))
@@ -129,7 +157,7 @@ func NewStandard14FontMustCompile(basefont fonts.StdFontName) *PdfFont {
 // NewStandard14FontWithEncoding returns the standard 14 font named `basefont` as a *PdfFont and
 // a TextEncoder that encodes all the runes in `alphabet`, or an error if this is not possible.
 // An error can occur if `basefont` is not one the standard 14 font names.
-func NewStandard14FontWithEncoding(basefont fonts.StdFontName, alphabet map[rune]int) (*PdfFont,
+func NewStandard14FontWithEncoding(basefont StdFontName, alphabet map[rune]int) (*PdfFont,
 	textencoding.SimpleEncoder, error) {
 	std, err := newStandard14Font(basefont)
 	if err != nil {
@@ -493,10 +521,13 @@ func (font *PdfFont) Encoder() textencoding.TextEncoder {
 	return t.Encoder()
 }
 
+// CharMetrics represents width and height metrics of a glyph.
+type CharMetrics = fonts.CharMetrics
+
 // GetRuneMetrics returns the char metrics for a rune.
 // TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
 //                       well give them 0 width. There is no need for the bool return.
-func (font *PdfFont) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
+func (font *PdfFont) GetRuneMetrics(r rune) (CharMetrics, bool) {
 	t := font.actualFont()
 	if t == nil {
 		common.Log.Debug("ERROR: GetGlyphCharMetrics Not implemented for font type=%#T", font.context)
@@ -524,7 +555,7 @@ func (font *PdfFont) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 // TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
 //                       well give them 0 width. There is no need for the bool return.
 // TODO(gunnsth): Reconsider whether needed or if can map via GlyphName.
-func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
+func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (CharMetrics, bool) {
 	var nometrics fonts.CharMetrics
 
 	// TODO(peterwilliams97): pdfFontType0.GetCharMetrics() calls pdfCIDFontType2.GetCharMetrics()
@@ -559,30 +590,6 @@ func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetri
 	}
 
 	common.Log.Debug("GetCharMetrics: No metrics for font=%s", font)
-	return nometrics, false
-}
-
-// GetRuneCharMetrics returns the char metrics for rune `r`.
-// TODO(peterwilliams97) There is nothing callers can do if no CharMetrics are found so we might as
-//                       well give them 0 width. There is no need for the bool return.
-func (font *PdfFont) GetRuneCharMetrics(r rune) (fonts.CharMetrics, bool) {
-	var nometrics fonts.CharMetrics
-
-	encoder := font.Encoder()
-	if encoder != nil {
-		m, ok := font.context.GetRuneMetrics(r)
-		if ok {
-			return m, true
-		}
-		if r != 32 {
-			common.Log.Debug("ERROR: Metrics not found for rune=%+v %s", r, font)
-		}
-	}
-	if descriptor, err := font.GetFontDescriptor(); err == nil && descriptor != nil {
-		return fonts.CharMetrics{Wx: descriptor.missingWidth}, true
-	}
-
-	common.Log.Debug("GetRuneCharMetrics: No metrics for font=%s", font)
 	return nometrics, false
 }
 
