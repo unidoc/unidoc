@@ -194,6 +194,19 @@ func (m *Matrix) clampRange() {
 			m[i] = -maxAbsNumber
 		}
 	}
+	m.CheckMatrix()
+}
+
+func (m *Matrix) CheckMatrix() {
+	mult := []float64{m[0], m[1], m[3], m[4]}
+	sum := 0.0
+	for _, x := range mult {
+		sum += math.Abs(x)
+	}
+	if sum <= 1e-6 {
+		common.Log.Error("Zero matrix: %s", m.String())
+		panic(fmt.Errorf("Zero matrix: %s", m.String()))
+	}
 }
 
 // maxAbsNumber defines the maximum absolute value of allowed practical matrix element values as needed

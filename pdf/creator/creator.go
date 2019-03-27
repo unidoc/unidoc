@@ -732,8 +732,8 @@ func (c *Creator) NewList() *List {
 	return newList(c.NewTextStyle())
 }
 
-// NewRectangle creates a new Rectangle with default parameters
-// with left corner at (x,y) and width, height as specified.
+// NewRectangle creates a new Rectangle with default parameters with left corner at (x,y) and
+// width, height as specified.
 func (c *Creator) NewRectangle(x, y, width, height float64) *Rectangle {
 	return newRectangle(x, y, width, height)
 }
@@ -758,7 +758,8 @@ func (c *Creator) NewEllipse(xc, yc, width, height float64) *Ellipse {
 	return newEllipse(xc, yc, width, height)
 }
 
-// NewCurve returns new instance of Curve between points (x1,y1) and (x2, y2) with control point (cx,cy).
+// NewCurve returns new instance of Curve between points (x1,y1) and (x2, y2) with control point
+// (cx,cy).
 func (c *Creator) NewCurve(x1, y1, cx, cy, x2, y2 float64) *Curve {
 	return newCurve(x1, y1, cx, cy, x2, y2)
 }

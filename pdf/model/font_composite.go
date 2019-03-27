@@ -248,7 +248,7 @@ func (font pdfCIDFontType0) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 
 // GetCharMetrics returns the char metrics for character code `code`.
 func (font pdfCIDFontType0) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
-	return fonts.CharMetrics{}, true
+	return fonts.CharMetrics{Wx: defaultFontWidth}, true
 }
 
 // ToPdfObject converts the pdfCIDFontType0 to a PDF representation.
@@ -336,12 +336,20 @@ func (font pdfCIDFontType2) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 		}
 		w = int(*dw)
 	}
+	if w <= 0 {
+		common.Log.Info("w->%.1f", defaultFontWidth)
+		w = defaultFontWidth
+	}
 	return fonts.CharMetrics{Wx: float64(w)}, true
 }
 
 // GetCharMetrics returns the char metrics for character code `code`.
 func (font pdfCIDFontType2) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
 	if w, ok := font.widths[code]; ok {
+		if w <= 0 {
+			common.Log.Info("w->%.1f", defaultFontWidth)
+			w = defaultFontWidth
+		}
 		return fonts.CharMetrics{Wx: float64(w)}, true
 	}
 	// TODO(peterwilliams97): The remainder of this function is pure guesswork. Explain it.
@@ -350,6 +358,10 @@ func (font pdfCIDFontType2) GetCharMetrics(code textencoding.CharCode) (fonts.Ch
 	w, ok := font.runeToWidthMap[r]
 	if !ok {
 		w = int(font.defaultWidth)
+	}
+	if w <= 0 {
+		common.Log.Info("w->%.1f", defaultFontWidth)
+		w = defaultFontWidth
 	}
 	return fonts.CharMetrics{Wx: float64(w)}, true
 }

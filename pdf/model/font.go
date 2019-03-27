@@ -566,6 +566,7 @@ func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (CharMetrics, bo
 	switch t := font.context.(type) {
 	case *pdfFontSimple:
 		if m, ok := t.GetCharMetrics(code); ok {
+			// common.Log.Info("## m=%s ok=%t", m, ok)
 			return m, ok
 		}
 	case *pdfFontType0:
@@ -586,7 +587,13 @@ func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (CharMetrics, bo
 	}
 
 	if descriptor, err := font.GetFontDescriptor(); err == nil && descriptor != nil {
-		return fonts.CharMetrics{Wx: descriptor.missingWidth}, true
+		wx := descriptor.missingWidth
+		common.Log.Debug("GetCharMetrics: No descriptor for font=%s missingWidth=%.1f",
+			font, descriptor.missingWidth)
+		if wx <= 0 {
+			wx = defaultFontWidth
+		}
+		return fonts.CharMetrics{Wx: wx}, true
 	}
 
 	common.Log.Debug("GetCharMetrics: No metrics for font=%s", font)

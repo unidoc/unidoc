@@ -21,6 +21,8 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+const MinBBox = 1e-7
+
 // ExtractText processes and extracts all text data in content streams and returns as a string.
 // It takes into account character encodings in the PDF file, which are decoded by
 // CharcodeBytesToUnicode.
@@ -219,6 +221,7 @@ func (e *Extractor) extractPageText(contents string, resources *model.PdfPageRes
 					return err
 				}
 			case "Tm": // Set text matrix.
+				common.Log.Info("op=%s", op)
 				if ok, err := to.checkOp(op, 6, true); !ok {
 					common.Log.Debug("ERROR: Tm err=%v", err)
 					return err
@@ -371,6 +374,7 @@ func (to *textObject) setTextMatrix(f []float64) {
 	a, b, c, d, tx, ty := f[0], f[1], f[2], f[3], f[4], f[5]
 	to.tm = transform.NewMatrix(a, b, c, d, tx, ty)
 	to.tlm = to.tm
+	to.tm.CheckMatrix()
 }
 
 // showText "Tj". Show a text string.
@@ -380,8 +384,9 @@ func (to *textObject) showText(charcodes []byte) error {
 
 // showTextAdjusted "TJ". Show text with adjustable spacing.
 func (to *textObject) showTextAdjusted(args *core.PdfObjectArray) error {
+	common.Log.Debug("~~~~~~~~~~showTextAdjusted: args=%s", args)
 	vertical := false
-	for _, o := range args.Elements() {
+	for i, o := range args.Elements() {
 		switch o.(type) {
 		case *core.PdfObjectFloat, *core.PdfObjectInteger:
 			x, err := core.GetNumberAsFloat(o)
@@ -395,13 +400,15 @@ func (to *textObject) showTextAdjusted(args *core.PdfObjectArray) error {
 			}
 			td := translationMatrix(transform.Point{X: dx, Y: dy})
 			to.tm.Concat(td)
-			common.Log.Trace("showTextAdjusted: dx,dy=%3f,%.3f Tm=%s", dx, dy, to.tm)
+			common.Log.Debug("showTextAdjusted: %d) dx,dy=%3f,%.3f Tm=%s", i, dx, dy, to.tm)
+			to.tm.CheckMatrix()
 		case *core.PdfObjectString:
 			charcodes, ok := core.GetStringBytes(o)
 			if !ok {
 				common.Log.Trace("showTextAdjusted: Bad string arg. o=%s args=%+v", o, args)
 				return core.ErrTypeError
 			}
+			common.Log.Debug("showTextAdjusted: %d) charcodes=% 02x=%q", i, charcodes, string(charcodes))
 			to.renderText(charcodes)
 		default:
 			common.Log.Debug("ERROR: showTextAdjusted. Unexpected type (%T) args=%+v", o, args)
@@ -657,6 +664,11 @@ func newTextObject(e *Extractor, resources *model.PdfPageResources, gs contentst
 // renderText processes and renders byte array `data` for extraction purposes.
 func (to *textObject) renderText(data []byte) error {
 
+	common.Log.Debug("renderText-: %q", string(data))
+	defer func() {
+		common.Log.Debug("renderText+: %q", string(data))
+	}()
+
 	font := to.getCurrentFont()
 
 	charcodes := font.BytesToCharcodes(data)
@@ -695,10 +707,13 @@ func (to *textObject) renderText(data []byte) error {
 			continue
 		}
 
+		common.Log.Debug("==========vv i=%d r=%c", i, r)
+
 		code := charcodes[i]
 		// The location of the text on the page in device coordinates is given by trm, the text
 		// rendering matrix.
 		trm := to.gs.CTM.Mult(to.tm).Mult(stateMatrix)
+		trm.CheckMatrix()
 
 		// calculate the text location displacement due to writing `r`. We will use this to update
 		// to.tm
@@ -710,6 +725,7 @@ func (to *textObject) renderText(data []byte) error {
 		}
 
 		m, ok := font.GetCharMetrics(code)
+		common.Log.Debug("m=%s ok=%t", m, ok)
 		if !ok {
 			common.Log.Debug("ERROR: No metric for code=%d r=0x%04x=%+q %s", code, r, r, font)
 			return errors.New("no char metrics")
@@ -731,6 +747,11 @@ func (to *textObject) renderText(data []byte) error {
 		common.Log.Debug("\"%c\" stateMatrix=%s CTM=%s Tm=%s", r, stateMatrix, to.gs.CTM, to.tm)
 		common.Log.Debug("tfs=%.3f th=%.3f Tc=%.3f w=%.3f (Tw=%.3f)", tfs, th, state.tc, w, state.tw)
 		common.Log.Debug("m=%s c=%+v t0=%+v td0=%s trm0=%s", m, c, t0, td0, td0.Mult(to.tm).Mult(to.gs.CTM))
+		common.Log.Debug("font=%s", font)
+		if m.Wx == 0.0 && string(r) != " " {
+			common.Log.Error("$$$0")
+			panic("$$$0")
+		}
 
 		mark := to.newTextMark(
 			string(r),
@@ -740,9 +761,20 @@ func (to *textObject) renderText(data []byte) error {
 		common.Log.Trace("i=%d code=%d mark=%s trm=%s", i, code, mark, trm)
 		to.marks = append(to.marks, mark)
 
-		// update the text matrix by the displacement of the text location.
+		// Update the text matrix by the displacement of the text location.
 		to.tm.Concat(td)
-		common.Log.Trace("to.tm=%s", to.tm)
+		common.Log.Debug("to.tm=%s", to.tm)
+		to.tm.CheckMatrix()
+
+		if mark.Width() == 0.0 && mark.text != " " {
+			common.Log.Error("$$$1")
+			panic("$$$1")
+		}
+		if m.Wx == 0.0 && mark.text != " " {
+			common.Log.Error("$$$2")
+			panic("$$$2")
+		}
+		common.Log.Debug("==========^^ i=%d r=%c", i, r)
 	}
 
 	return nil
@@ -769,6 +801,7 @@ func translationMatrix(p transform.Point) transform.Matrix {
 func (to *textObject) moveTo(tx, ty float64) {
 	to.tlm.Concat(transform.NewMatrix(1, 0, 0, 1, tx, ty))
 	to.tm = to.tlm
+	to.tm.CheckMatrix()
 }
 
 // textMark represents text drawn on a page and its position in device coordinates.
@@ -782,6 +815,8 @@ type textMark struct {
 	height        float64            // Text height.
 	spaceWidth    float64            // Best guess at the width of a space in the font the text was rendered with.
 	count         int64              // To help with reading debug logs.
+	trm           transform.Matrix
+	end           transform.Point
 }
 
 // newTextMark returns a textMark for text `text` rendered with text rendering matrix (TRM) `trm`
@@ -789,7 +824,13 @@ type textMark struct {
 // space in the font the text is rendered in device coordinates.
 func (to *textObject) newTextMark(text string, trm transform.Matrix, end transform.Point,
 	spaceWidth float64) textMark {
-	to.e.textCount++
+
+	common.Log.Debug("newTextMark-: %q", text)
+	defer func() {
+		common.Log.Debug("newTextMark+: %q", text)
+	}()
+
+	textCount++
 	theta := trm.Angle()
 	orient := nearestMultiple(theta, 10)
 	var height float64
@@ -801,8 +842,22 @@ func (to *textObject) newTextMark(text string, trm transform.Matrix, end transfo
 
 	start := translation(trm)
 	bbox := model.PdfRectangle{Llx: start.X, Lly: start.Y, Urx: end.X, Ury: end.Y}
+	switch orient % 360 {
+	case 90:
+		bbox.Urx -= height
+	case 180:
+		bbox.Ury -= height
+	case 270:
+		bbox.Urx += height
+	default:
+		bbox.Ury += height
 
-	return textMark{
+	}
+	// if math.Abs(bbox.Urx-bbox.Llx) < 1.0 || math.Abs(bbox.Ury-bbox.Lly) < 1.0 {
+	// 	panic(fmt.Errorf("bbox=%+v trm=%s end=%s", bbox, trm, end))
+	// }
+
+	t := textMark{
 		text:          text,
 		orient:        orient,
 		bbox:          bbox,
@@ -810,8 +865,20 @@ func (to *textObject) newTextMark(text string, trm transform.Matrix, end transfo
 		orientedEnd:   end.Rotate(theta),
 		height:        math.Abs(height),
 		spaceWidth:    spaceWidth,
-		count:         to.e.textCount,
+		count:         textCount,
+		trm:           trm,
+		end:           end,
 	}
+	if t.text != " " && t.Width() == 0.0 {
+		common.Log.Error("++xx t=%s\n\t=%#v", t, t)
+		// if t.count == 10492 {
+		panic("@")
+		// }
+	}
+	if t.text != " " && t.count < 0 {
+		panic("#^@")
+	}
+	return t
 }
 
 // nearestMultiple return the integer multiple of `m` that is closest to `x`.
@@ -825,7 +892,7 @@ func nearestMultiple(x float64, m int) int {
 
 // String returns a string describing `t`.
 func (t textMark) String() string {
-	return fmt.Sprintf("textMark{@%03d [%.3f,%.3f] %.1f %d° %q}",
+	return fmt.Sprintf("textMark{@%03d [%.3f,%.3f] w=%.1f %d° %q}",
 		t.count, t.orientedStart.X, t.orientedStart.Y, t.Width(), t.orient, truncate(t.text, 100))
 }
 
@@ -835,7 +902,7 @@ func (t textMark) Width() float64 {
 }
 
 // PageText represents the layout of text on a device page.
-// It's implementation is opaque to allow for future optimizations.
+// Its implementation is opaque to allow for future optimizations.
 type PageText struct {
 	// PageText is currently implemented as a list of texts and their positions on a PDF page.
 	marks []textMark
@@ -843,10 +910,12 @@ type PageText struct {
 
 // String returns a string describing `pt`.
 func (pt PageText) String() string {
-	parts := []string{fmt.Sprintf("PageText: %d elements", len(pt.marks))}
+	summary := fmt.Sprintf("PageText: %d elements", len(pt.marks))
+	parts := []string{"-" + summary}
 	for _, t := range pt.marks {
 		parts = append(parts, t.String())
 	}
+	parts = append(parts, "+"+summary)
 	return strings.Join(parts, "\n")
 }
 
@@ -878,6 +947,16 @@ func (pt PageText) height() float64 {
 	return fontHeight
 }
 
+const (
+	wordJoiner = ""
+	lineJoiner = "\n"
+)
+
+var (
+	wordJoinerLen = len(wordJoiner)
+	lineJoinerLen = len(lineJoiner)
+)
+
 // ToText returns the contents of `pt` as a single string.
 func (pt PageText) ToText() string {
 	fontHeight := pt.height()
@@ -893,43 +972,57 @@ func (pt PageText) ToText() string {
 	lines := pt.toLines(tol)
 	texts := make([]string, len(lines))
 	for i, l := range lines {
-		texts[i] = strings.Join(l.words, "")
+		texts[i] = strings.Join(l.words, wordJoiner)
 	}
-	return strings.Join(texts, "\n")
+	return strings.Join(texts, lineJoiner)
 }
 
 type TextLocation struct {
 	Offset int
 	BBox   model.PdfRectangle
+	Text   string // !@#$ For debugging only.
 }
 
-// ToTextLocation returns the contents of `pt` as a single string.
+func (t TextLocation) String() string {
+	b := t.BBox
+	return fmt.Sprintf("{uniTextLocation: %d (%5.1f, %5.1f) (%5.1f, %5.1f) %q", t.Offset,
+		b.Llx, b.Lly, b.Urx, b.Ury, t.Text)
+}
+
+// ToTextLocation returns the contents of `pt` as a slice of TextLocation.
 func (pt PageText) ToTextLocation() (string, []TextLocation) {
 	fontHeight := pt.height()
 	// We sort with a y tolerance to allow for subscripts, diacritics etc.
 	tol := minFloat(fontHeight*0.2, 5.0)
-	common.Log.Trace("ToText: %d elements fontHeight=%.1f tol=%.1f", len(pt.marks), fontHeight, tol)
+	common.Log.Info("ToTextLocation: %d elements fontHeight=%.1f tol=%.1f", len(pt.marks), fontHeight, tol)
 
 	// Uncomment the 2 following Trace statements to see the effects of sorting.
-	// common.Log.Debug("ToText: Before sorting %s", pt)
+	common.Log.Debug("ToText: Before sorting %s", pt)
 	pt.sortPosition(tol)
 	// common.Log.Debug("ToText: After sorting %s", pt)
 
 	lines := pt.toLines(tol)
+	for _, l := range lines {
+		l.checkLine()
+	}
 
 	texts := make([]string, len(lines))
 	for i, l := range lines {
-		texts[i] = strings.Join(l.words, "")
+		texts[i] = strings.Join(l.words, wordJoiner)
 	}
-	text := strings.Join(texts, "\n")
+	text := strings.Join(texts, lineJoiner)
 
 	var locations []TextLocation
 	offset := 0
 	for _, l := range lines {
+		l.checkLine()
 		for j, w := range l.words {
-			locations = append(locations, TextLocation{offset, l.bboxes[j]})
-			offset += len(w) + 1
+			loc := TextLocation{offset, l.bboxes[j], w}
+			// common.Log.Info("%6d: %#v", i, loc)
+			locations = append(locations, loc)
+			offset += len(w) + wordJoinerLen
 		}
+		offset += lineJoinerLen
 	}
 
 	return text, locations
@@ -964,21 +1057,26 @@ type textLine struct {
 	dxList []float64            // x distance between successive words in line.
 	words  []string             // words in the line.
 	bboxes []model.PdfRectangle // bounding boxes of words.
+	counts []int64              // textMark count To help with reading debug logs.
 }
 
 // toLines returns the text and positions in `pt.marks` as a slice of textLine.
 // NOTE: Caller must sort the text list top-to-bottom, left-to-right (for orientation adjusted so
 // that text is horizontal) before calling this function.
 func (pt PageText) toLines(tol float64) []textLine {
-	// We divide `pt.marks` into slices which contain texts with the same orientation, extract the lines
-	// for each orientation then return the concatention of these lines sorted by orientation.
+	// We divide `pt.marks` into slices which contain texts with the same orientation, extract the
+	// lines for each orientation then return the concatention of these lines sorted by orientation.
 	tlOrient := make(map[int][]textMark, len(pt.marks))
 	for _, t := range pt.marks {
 		tlOrient[t.orient] = append(tlOrient[t.orient], t)
 	}
 	var lines []textLine
 	for _, o := range orientKeys(tlOrient) {
-		lines = append(lines, PageText{tlOrient[o]}.toLinesOrient(tol)...)
+		lns := PageText{tlOrient[o]}.toLinesOrient(tol)
+		for _, l := range lns {
+			l.checkLine()
+		}
+		lines = append(lines, lns...)
 	}
 	return lines
 }
@@ -996,6 +1094,7 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 	var words []string
 	var xx []float64
 	var bboxes []model.PdfRectangle
+	var counts []int64
 	y := pt.marks[0].orientedStart.Y
 
 	scanning := false
@@ -1007,17 +1106,20 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 	for _, t := range pt.marks {
 		if t.orientedStart.Y+tol < y {
 			if len(words) > 0 {
-				line := newLine(y, xx, words, bboxes)
+				line := newLine(y, xx, words, bboxes, counts)
+				line.checkLine()
 				if averageCharWidth.running {
 					// FIXME(peterwilliams97): Fix and reinstate combineDiacritics.
 					// line = combineDiacritics(line, averageCharWidth.ave)
 					line = removeDuplicates(line, averageCharWidth.ave)
 				}
+				line.checkLine()
 				lines = append(lines, line)
 			}
 			words = []string{}
 			xx = []float64{}
 			bboxes = []model.PdfRectangle{}
+			counts = []int64{}
 			y = t.orientedStart.Y
 			scanning = false
 		}
@@ -1049,9 +1151,18 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 			t.text, t.orientedStart.X, t.orientedStart.Y, lastEndX, nextWordX,
 			nextWordX-t.orientedStart.X, isSpace)
 
+		if t.text != " " && t.Width() == 0.0 {
+			common.Log.Debug("xx t=%#v", t)
+			panic("!")
+		}
+		if t.text != " " && t.count < 0 {
+			panic("#^$")
+		}
+
 		if isSpace {
 			words = append(words, " ")
 			bboxes = append(bboxes, model.PdfRectangle{})
+			counts = append(counts, -1)
 			xx = append(xx, (lastEndX+t.orientedStart.X)*0.5)
 		}
 
@@ -1059,15 +1170,27 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 		lastEndX = t.orientedEnd.X
 		words = append(words, t.text)
 		bboxes = append(bboxes, t.bbox)
+		counts = append(counts, t.count)
+		if t.text != " " {
+			bbox := t.bbox
+			dx := bbox.Urx - bbox.Llx
+			dy := bbox.Ury - bbox.Lly
+			if math.Abs(dx) < MinBBox || math.Abs(dy) < MinBBox {
+				common.Log.Error("bbox=%+v t=%s\n\t%#v", bbox, t, t)
+				panic(fmt.Errorf("bbox=%+v t=%s dx,dy=%g,%g", bbox, t, dx, dy))
+			}
+		}
+
 		xx = append(xx, t.orientedStart.X)
 		scanning = true
 		common.Log.Trace("lastEndX=%.2f", lastEndX)
 	}
 	if len(words) > 0 {
-		line := newLine(y, xx, words, bboxes)
+		line := newLine(y, xx, words, bboxes, counts)
 		if averageCharWidth.running {
 			line = removeDuplicates(line, averageCharWidth.ave)
 		}
+		line.checkLine()
 		lines = append(lines, line)
 	}
 	return lines
@@ -1105,12 +1228,41 @@ func (exp *exponAve) update(x float64) float64 {
 
 // newLine returns the textLine representation of strings `words` with y coordinate `y` and x
 // coordinates `xx` and height `h`.
-func newLine(y float64, xx []float64, words []string, bboxes []model.PdfRectangle) textLine {
+func newLine(y float64, xx []float64, words []string, bboxes []model.PdfRectangle, counts []int64) textLine {
 	dxList := make([]float64, len(xx)-1)
 	for i := 1; i < len(xx); i++ {
 		dxList[i-1] = xx[i] - xx[i-1]
 	}
-	return textLine{x: xx[0], y: y, dxList: dxList, words: words, bboxes: bboxes}
+	n := len(bboxes)
+	if n != len(counts) {
+		panic("#^&")
+	}
+	if n != len(words) {
+		panic("#^~")
+	}
+	for i := 0; i < n; i++ {
+		if words[i] != " " && counts[i] < 0 {
+			panic("#^`")
+		}
+	}
+	line := textLine{x: xx[0], y: y, dxList: dxList, words: words, bboxes: bboxes, counts: counts}
+	line.checkLine()
+	return line
+}
+
+func (l textLine) checkLine() {
+	for j, w := range l.words {
+		bbox := l.bboxes[j]
+		count := l.counts[j]
+		if w != " " {
+			dx := bbox.Urx - bbox.Llx
+			dy := bbox.Ury - bbox.Lly
+			if math.Abs(dx) < MinBBox || math.Abs(dy) < MinBBox {
+				common.Log.Error("@%d bbox=%+v w=%q", count, bbox, w)
+				panic(fmt.Errorf("@%d bbox=%+v dx,dy=%.2f,%.2f w=%q", count, bbox, dx, dy, w))
+			}
+		}
+	}
 }
 
 // removeDuplicates returns `line` with duplicate characters removed. `charWidth` is the average
@@ -1123,18 +1275,25 @@ func removeDuplicates(line textLine, charWidth float64) textLine {
 	// NOTE(peterwilliams97) 0.3 is a guess. It may be possible to tune this to a better value.
 	tol := charWidth * 0.3
 	words := []string{line.words[0]}
+	bboxes := []model.PdfRectangle{line.bboxes[0]}
+	counts := []int64{line.counts[0]}
 	var dxList []float64
 
 	w0 := line.words[0]
 	for i, dx := range line.dxList {
 		w := line.words[i+1]
+		b := line.bboxes[i+1]
+		c := line.counts[i+1]
 		if w != w0 || dx > tol {
 			words = append(words, w)
+			bboxes = append(bboxes, b)
+			counts = append(counts, c)
 			dxList = append(dxList, dx)
 		}
 		w0 = w
 	}
-	return textLine{x: line.x, y: line.y, dxList: dxList, words: words, bboxes: line.bboxes}
+	return textLine{x: line.x, y: line.y, dxList: dxList, words: words, bboxes: bboxes,
+		counts: counts}
 }
 
 // combineDiacritics returns `line` with diacritics close to characters combined with the characters.
@@ -1197,7 +1356,8 @@ func combineDiacritics(line textLine, charWidth float64) textLine {
 		return line
 	}
 
-	return textLine{x: line.x, y: line.y, dxList: dxList, words: words, bboxes: line.bboxes}
+	return textLine{x: line.x, y: line.y, dxList: dxList, words: words, bboxes: line.bboxes,
+		counts: line.counts}
 }
 
 // combine combines any diacritics in `parts` with the single non-diacritic character in `parts`.

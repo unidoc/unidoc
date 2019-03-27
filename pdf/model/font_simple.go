@@ -132,6 +132,10 @@ func (font pdfFontSimple) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 	return metrics, ok
 }
 
+const defaultFontWidth = 250
+
+var metricsCount = 100
+
 // GetCharMetrics returns the character metrics for the specified character code.  A bool flag is
 // returned to indicate whether or not the entry was found in the glyph to charcode mapping.
 // How it works:
@@ -144,9 +148,11 @@ func (font pdfFontSimple) GetCharMetrics(code textencoding.CharCode) (fonts.Char
 	}
 	if fonts.IsStdFont(fonts.StdFontName(font.basefont)) {
 		// PdfBox says this is what Acrobat does. Their reference is PDFBOX-2334.
-		return fonts.CharMetrics{Wx: 250}, true
+		return fonts.CharMetrics{Wx: defaultFontWidth}, true
 	}
-	return fonts.CharMetrics{}, false
+	m := fonts.CharMetrics{Wx: defaultFontWidth, XX: metricsCount}
+	metricsCount++
+	return m, false
 }
 
 // newSimpleFontFromPdfObject creates a pdfFontSimple from dictionary `d`. Elements of `d` that
