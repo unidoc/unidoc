@@ -46,8 +46,10 @@ type Table struct {
 	// Margins to be applied around the block when drawing on Page.
 	margins margins
 
-	// Header row indices range.
-	hasHeader      bool
+	// Specifies whether the table has a header.
+	hasHeader bool
+
+	// Header rows.
 	headerStartRow int
 	headerEndRow   int
 }
@@ -146,7 +148,7 @@ func (table *Table) SetPos(x, y float64) {
 }
 
 // SetHeaderRows turns the selected table rows into headers that are repeated
-// for every page the table spans.
+// for every page the table spans. startRow and endRow are inclusive.
 func (table *Table) SetHeaderRows(startRow, endRow int) error {
 	if startRow <= 0 {
 		return errors.New("header start row must be greater than 0")
