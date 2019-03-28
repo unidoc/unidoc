@@ -26,11 +26,29 @@ import (
 	"github.com/unidoc/unidoc/pdf/model/fonts"
 )
 
+var pdfAuthor = ""
+var pdfCreationDate = time.Now()
 var pdfCreator = ""
+var pdfKeywords = ""
+var pdfModifiedDate = time.Now()
+var pdfProducer = ""
+var pdfSubject = ""
+var pdfTitle = ""
 
-func getPdfProducer() string {
-	licenseKey := license.GetLicenseKey()
-	return fmt.Sprintf("UniDoc v%s (%s) - http://unidoc.io", getUniDocVersion(), licenseKey.TypeToString())
+func getPdfAuthor() string {
+	return pdfAuthor
+}
+
+func SetPdfAuthor(author string) {
+	pdfAuthor = author
+}
+
+func getPdfCreationDate() time.Time {
+	return pdfCreationDate
+}
+
+func SetPdfCreationDate(creationDate time.Time) {
+	pdfCreationDate = creationDate
 }
 
 func getPdfCreator() string {
@@ -44,6 +62,53 @@ func getPdfCreator() string {
 
 func SetPdfCreator(creator string) {
 	pdfCreator = creator
+}
+
+func getPdfKeywords() string {
+	return pdfKeywords
+}
+
+func SetPdfKeywords(keywords string) {
+	pdfKeywords = keywords
+}
+
+func getPdfModifiedDate() time.Time {
+	return pdfModifiedDate
+}
+
+func SetPdfModifiedDate(modifiedDate time.Time) {
+	pdfCreationDate = modifiedDate
+}
+
+func getPdfProducer() string {
+	licenseKey := license.GetLicenseKey()
+
+	if len(pdfProducer) > 0 && licenseKey.IsLicensed() {
+		return pdfProducer
+	}
+
+	// Return default.
+	return fmt.Sprintf("UniDoc v%s (%s) - http://unidoc.io", getUniDocVersion(), licenseKey.TypeToString())
+}
+
+func SetPdfProducer(producer string) {
+	pdfProducer = producer
+}
+
+func getPdfSubject() string {
+	return pdfSubject
+}
+
+func SetPdfSubject(subject string) {
+	pdfSubject = subject
+}
+
+func getPdfTitle() string {
+	return pdfTitle
+}
+
+func SetPdfTitle(title string) {
+	pdfTitle = title
 }
 
 type PdfWriter struct {
@@ -93,8 +158,18 @@ func NewPdfWriter() PdfWriter {
 
 	// Creation info.
 	infoDict := MakeDict()
-	infoDict.Set("Producer", MakeString(getPdfProducer()))
+	infoDict.Set("Author", MakeString(getPdfAuthor()))
+	if cd, err := NewPdfDateFromTime(getPdfCreationDate()); err == nil {
+		infoDict.Set("CreationDate", cd.ToPdfObject())
+	}
 	infoDict.Set("Creator", MakeString(getPdfCreator()))
+	infoDict.Set("Keywords", MakeString(getPdfKeywords()))
+	if cd, err := NewPdfDateFromTime(getPdfModifiedDate()); err == nil {
+		infoDict.Set("ModDate", cd.ToPdfObject())
+	}
+	infoDict.Set("Producer", MakeString(getPdfProducer()))
+	infoDict.Set("Subject", MakeString(getPdfSubject()))
+	infoDict.Set("Title", MakeString(getPdfTitle()))
 	infoObj := PdfIndirectObject{}
 	infoObj.PdfObject = infoDict
 	w.infoObj = &infoObj

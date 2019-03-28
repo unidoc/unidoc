@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"time"
 
 	. "github.com/unidoc/unidoc/pdf/core"
 )
@@ -120,6 +121,25 @@ func NewPdfDate(dateStr string) (PdfDate, error) {
 	} else {
 		d.utOffsetMins = 0
 	}
+
+	return d, nil
+}
+
+func NewPdfDateFromTime(timeObj time.Time) (PdfDate, error) {
+	d := PdfDate{}
+
+	d.year = int64(timeObj.Year())
+	d.month = int64(timeObj.Month())
+	d.day = int64(timeObj.Day())
+	d.hour = int64(timeObj.Hour())
+	d.minute = int64(timeObj.Minute())
+	d.second = int64(timeObj.Second())
+
+	timezone := timeObj.Format("-07:00")
+	d.utOffsetSign = []byte(timezone[0:1])[0]
+
+	d.utOffsetHours, _ = strconv.ParseInt(timezone[1:3], 10, 32)
+	d.utOffsetMins, _ = strconv.ParseInt(timezone[4:6], 10, 32)
 
 	return d, nil
 }
