@@ -748,7 +748,12 @@ func (to *textObject) renderText(data []byte) error {
 		common.Log.Debug("tfs=%.3f th=%.3f Tc=%.3f w=%.3f (Tw=%.3f)", tfs, th, state.tc, w, state.tw)
 		common.Log.Debug("m=%s c=%+v t0=%+v td0=%s trm0=%s", m, c, t0, td0, td0.Mult(to.tm).Mult(to.gs.CTM))
 		common.Log.Debug("font=%s", font)
-		if m.Wx == 0.0 && string(r) != " " {
+		if m.Wx == 0.0 && !unicode.IsSpace(r) {
+			common.Log.Error("\"%c\" stateMatrix=%s CTM=%s Tm=%s", r, stateMatrix, to.gs.CTM, to.tm)
+			common.Log.Error("tfs=%.3f th=%.3f Tc=%.3f w=%.3f (Tw=%.3f)", tfs, th, state.tc, w, state.tw)
+			common.Log.Error("m=%s c=%+v t0=%+v td0=%s trm0=%s", m, c, t0, td0, td0.Mult(to.tm).Mult(to.gs.CTM))
+			common.Log.Error("font=%s", font)
+			common.Log.Error("r=%#v=%+q=%q=`%s`", r, string(r), string(r), string(r))
 			common.Log.Error("$$$0")
 			panic("$$$0")
 		}
@@ -766,11 +771,11 @@ func (to *textObject) renderText(data []byte) error {
 		common.Log.Debug("to.tm=%s", to.tm)
 		to.tm.CheckMatrix()
 
-		if mark.Width() == 0.0 && mark.text != " " {
+		if mark.Width() == 0.0 && !isTextSpace(mark.text) {
 			common.Log.Error("$$$1")
 			panic("$$$1")
 		}
-		if m.Wx == 0.0 && mark.text != " " {
+		if m.Wx == 0.0 && !isTextSpace(mark.text) {
 			common.Log.Error("$$$2")
 			panic("$$$2")
 		}
@@ -869,16 +874,25 @@ func (to *textObject) newTextMark(text string, trm transform.Matrix, end transfo
 		trm:           trm,
 		end:           end,
 	}
-	if t.text != " " && t.Width() == 0.0 {
+	if !isTextSpace(t.text) && t.Width() == 0.0 {
 		common.Log.Error("++xx t=%s\n\t=%#v", t, t)
 		// if t.count == 10492 {
 		panic("@")
 		// }
 	}
-	if t.text != " " && t.count < 0 {
+	if !isTextSpace(t.text) && t.count < 0 {
 		panic("#^@")
 	}
 	return t
+}
+
+func isTextSpace(text string) bool {
+	for _, r := range text {
+		if !unicode.IsSpace(r) {
+			return false
+		}
+	}
+	return true
 }
 
 // nearestMultiple return the integer multiple of `m` that is closest to `x`.
@@ -1141,7 +1155,7 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 
 		isSpace := false
 		nextWordX := lastEndX + minFloat(deltaSpace, deltaCharWidth)
-		if scanning && t.text != " " {
+		if scanning && !isTextSpace(t.text) {
 			isSpace = nextWordX < t.orientedStart.X
 		}
 		common.Log.Trace("t=%s", t)
@@ -1151,11 +1165,11 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 			t.text, t.orientedStart.X, t.orientedStart.Y, lastEndX, nextWordX,
 			nextWordX-t.orientedStart.X, isSpace)
 
-		if t.text != " " && t.Width() == 0.0 {
+		if !isTextSpace(t.text) && t.Width() == 0.0 {
 			common.Log.Debug("xx t=%#v", t)
 			panic("!")
 		}
-		if t.text != " " && t.count < 0 {
+		if !isTextSpace(t.text) && t.count < 0 {
 			panic("#^$")
 		}
 
@@ -1171,7 +1185,7 @@ func (pt PageText) toLinesOrient(tol float64) []textLine {
 		words = append(words, t.text)
 		bboxes = append(bboxes, t.bbox)
 		counts = append(counts, t.count)
-		if t.text != " " {
+		if !isTextSpace(t.text) {
 			bbox := t.bbox
 			dx := bbox.Urx - bbox.Llx
 			dy := bbox.Ury - bbox.Lly
@@ -1254,7 +1268,7 @@ func (l textLine) checkLine() {
 	for j, w := range l.words {
 		bbox := l.bboxes[j]
 		count := l.counts[j]
-		if w != " " {
+		if !isTextSpace(w) {
 			dx := bbox.Urx - bbox.Llx
 			dy := bbox.Ury - bbox.Lly
 			if math.Abs(dx) < MinBBox || math.Abs(dy) < MinBBox {
