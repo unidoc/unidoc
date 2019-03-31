@@ -238,26 +238,36 @@ type ImageHandler interface {
 type DefaultImageHandler struct{}
 
 // NewImageFromGoImage creates a new RGBA unidoc Image from a golang Image.
+// If `goimg` is grayscale (*goimage.Gray) then calls NewGrayImageFromGoImage instead.
 func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, error) {
-	// Speed up jpeg encoding by converting to RGBA first.
-	// Will not be required once the golang image/jpeg package is optimized.
 	b := goimg.Bounds()
-	m := goimage.NewRGBA(goimage.Rect(0, 0, b.Dx(), b.Dy()))
-	draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
 
-	var alphaData []byte
+	var m *goimage.RGBA
+	switch t := goimg.(type) {
+	case *goimage.Gray, *goimage.Gray16:
+		return ih.NewGrayImageFromGoImage(goimg)
+	case *goimage.RGBA:
+		m = t
+	default:
+		// Speed up jpeg encoding by converting to RGBA first.
+		// Will not be required once the golang image/jpeg package is optimized.
+		m = goimage.NewRGBA(goimage.Rect(0, 0, b.Dx(), b.Dy()))
+		draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
+	}
+
+	alphaData := make([]byte, len(m.Pix)/4)
 	hasAlpha := false
 
-	var data []byte
+	data := make([]byte, len(m.Pix))
 	for i := 0; i < len(m.Pix); i += 4 {
-		data = append(data, m.Pix[i], m.Pix[i+1], m.Pix[i+2])
+		data[i], data[i+1], data[i+2] = m.Pix[i], m.Pix[i+1], m.Pix[i+2]
 
 		alpha := m.Pix[i+3]
 		if alpha != 255 {
 			// If all alpha values are 255 (opaque), means that the alpha transparency channel is unnecessary.
 			hasAlpha = true
 		}
-		alphaData = append(alphaData, alpha)
+		alphaData[i/4] = alpha
 	}
 
 	imag := Image{}
@@ -278,8 +288,15 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 // NewGrayImageFromGoImage creates a new grayscale unidoc Image from a golang Image.
 func (ih DefaultImageHandler) NewGrayImageFromGoImage(goimg goimage.Image) (*Image, error) {
 	b := goimg.Bounds()
-	m := goimage.NewGray(b)
-	draw.Draw(m, b, goimg, b.Min, draw.Src)
+
+	var m *goimage.Gray
+	switch t := goimg.(type) {
+	case *goimage.Gray:
+		m = t
+	default:
+		m = goimage.NewGray(b)
+		draw.Draw(m, b, goimg, b.Min, draw.Src)
+	}
 
 	return &Image{
 		Width:            int64(b.Dx()),
