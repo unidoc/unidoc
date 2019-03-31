@@ -230,7 +230,9 @@ func (parser *PdfParser) parseName() (PdfObjectName, error) {
 
 				code, err := hex.DecodeString(string(hexcode[1:3]))
 				if err != nil {
-					return PdfObjectName(r.String()), err
+					common.Log.Debug("ERROR: Invalid hex following '#', continuing using literal - Output may be incorrect")
+					r.WriteByte('#') // Treat as literal '#' rather than hex code.
+					continue
 				}
 				r.Write(code)
 			} else {
