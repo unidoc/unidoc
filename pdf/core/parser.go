@@ -27,7 +27,7 @@ var reEOF = regexp.MustCompile("%%EOF")
 var reXrefTable = regexp.MustCompile(`\s*xref\s*`)
 var reStartXref = regexp.MustCompile(`startx?ref\s*(\d+)`)
 var reNumeric = regexp.MustCompile(`^[\+-.]*([0-9.]+)`)
-var reExponential = regexp.MustCompile(`^[\+-.]*([0-9.]+)e[\+-.]*([0-9.]+)`)
+var reExponential = regexp.MustCompile(`^[\+-.]*([0-9.]+)[eE][\+-.]*([0-9.]+)`)
 var reReference = regexp.MustCompile(`^\s*(\d+)\s+(\d+)\s+R`)
 var reIndirectObject = regexp.MustCompile(`(\d+)\s+(\d+)\s+obj`)
 var reXrefSubsection = regexp.MustCompile(`(\d+)\s+(\d+)\s*$`)
@@ -291,7 +291,7 @@ func (parser *PdfParser) parseNumber() (PdfObject, error) {
 			b, _ := parser.reader.ReadByte()
 			r.WriteByte(b)
 			isFloat = true
-		} else if bb[0] == 'e' {
+		} else if bb[0] == 'e' || bb[0] == 'E' {
 			// Exponential number format.
 			b, _ := parser.reader.ReadByte()
 			r.WriteByte(b)
