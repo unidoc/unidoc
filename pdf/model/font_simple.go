@@ -144,15 +144,23 @@ var metricsCount = 100
 //  3) Otherwise return no match and let the caller substitute a default.
 func (font pdfFontSimple) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
 	if width, ok := font.charWidths[code]; ok {
+		if width == 0 {
+			//  /Users/pcadmin/testdata/misc/hr/engage.pdf
+			common.Log.Debug("width: %g->%g", width, defaultFontWidth)
+			width = defaultFontWidth
+		}
+		common.Log.Debug("~~1 code=%d m=%s", code, fonts.CharMetrics{Wx: width})
 		return fonts.CharMetrics{Wx: width}, true
 	}
 	if fonts.IsStdFont(fonts.StdFontName(font.basefont)) {
 		// PdfBox says this is what Acrobat does. Their reference is PDFBOX-2334.
+		common.Log.Debug("~~1 code=%d m=%s", code, fonts.CharMetrics{Wx: defaultFontWidth})
 		return fonts.CharMetrics{Wx: defaultFontWidth}, true
 	}
 	m := fonts.CharMetrics{Wx: defaultFontWidth, XX: metricsCount}
 	metricsCount++
-	return m, false
+	common.Log.Debug("~~3 code=%d m=%s", code, m)
+	return m, true
 }
 
 // newSimpleFontFromPdfObject creates a pdfFontSimple from dictionary `d`. Elements of `d` that

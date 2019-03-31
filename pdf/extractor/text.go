@@ -221,7 +221,7 @@ func (e *Extractor) extractPageText(contents string, resources *model.PdfPageRes
 					return err
 				}
 			case "Tm": // Set text matrix.
-				common.Log.Info("op=%s", op)
+				common.Log.Debug("op=%s", op)
 				if ok, err := to.checkOp(op, 6, true); !ok {
 					common.Log.Debug("ERROR: Tm err=%v", err)
 					return err
@@ -1008,7 +1008,7 @@ func (pt PageText) ToTextLocation() (string, []TextLocation) {
 	fontHeight := pt.height()
 	// We sort with a y tolerance to allow for subscripts, diacritics etc.
 	tol := minFloat(fontHeight*0.2, 5.0)
-	common.Log.Info("ToTextLocation: %d elements fontHeight=%.1f tol=%.1f", len(pt.marks), fontHeight, tol)
+	common.Log.Debug("ToTextLocation: %d elements fontHeight=%.1f tol=%.1f", len(pt.marks), fontHeight, tol)
 
 	// Uncomment the 2 following Trace statements to see the effects of sorting.
 	common.Log.Debug("ToText: Before sorting %s", pt)
