@@ -255,19 +255,20 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 		draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
 	}
 
-	alphaData := make([]byte, len(m.Pix)/4)
+	numPixels := len(m.Pix) / 4
+	data := make([]byte, 3*numPixels)
+	alphaData := make([]byte, numPixels)
 	hasAlpha := false
 
-	data := make([]byte, len(m.Pix))
-	for i := 0; i < len(m.Pix); i += 4 {
-		data[i], data[i+1], data[i+2] = m.Pix[i], m.Pix[i+1], m.Pix[i+2]
+	for i := 0; i < numPixels; i++ {
+		data[3*i], data[3*i+1], data[3*i+2] = m.Pix[4*i], m.Pix[4*i+1], m.Pix[4*i+2]
 
-		alpha := m.Pix[i+3]
+		alpha := m.Pix[4*i+3]
 		if alpha != 255 {
 			// If all alpha values are 255 (opaque), means that the alpha transparency channel is unnecessary.
 			hasAlpha = true
 		}
-		alphaData[i/4] = alpha
+		alphaData[i] = alpha
 	}
 
 	imag := Image{}
