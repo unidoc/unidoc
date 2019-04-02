@@ -876,9 +876,7 @@ func (to *textObject) newTextMark(text string, trm transform.Matrix, end transfo
 	}
 	if !isTextSpace(t.text) && t.Width() == 0.0 {
 		common.Log.Error("++xx t=%s\n\t=%#v", t, t)
-		// if t.count == 10492 {
-		panic("@")
-		// }
+		panic(fmt.Errorf("@@a Zero-width text t=%s\n\t=%#v", t, t))
 	}
 	if !isTextSpace(t.text) && t.count < 0 {
 		panic("#^@")

@@ -337,7 +337,7 @@ func (font pdfCIDFontType2) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 		w = int(*dw)
 	}
 	if w <= 0 {
-		common.Log.Info("w->%.1f", defaultFontWidth)
+		common.Log.Debug("w->%d", defaultFontWidth)
 		w = defaultFontWidth
 	}
 	return fonts.CharMetrics{Wx: float64(w)}, true
@@ -347,7 +347,7 @@ func (font pdfCIDFontType2) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 func (font pdfCIDFontType2) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
 	if w, ok := font.widths[code]; ok {
 		if w <= 0 {
-			common.Log.Info("w->%.1f", defaultFontWidth)
+			common.Log.Debug("w->%d", defaultFontWidth)
 			w = defaultFontWidth
 		}
 		return fonts.CharMetrics{Wx: float64(w)}, true
@@ -360,7 +360,7 @@ func (font pdfCIDFontType2) GetCharMetrics(code textencoding.CharCode) (fonts.Ch
 		w = int(font.defaultWidth)
 	}
 	if w <= 0 {
-		common.Log.Info("w->%.1f", defaultFontWidth)
+		common.Log.Debug("w->%d", defaultFontWidth)
 		w = defaultFontWidth
 	}
 	return fonts.CharMetrics{Wx: float64(w)}, true

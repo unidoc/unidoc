@@ -198,16 +198,20 @@ func (m *Matrix) clampRange() {
 }
 
 func (m *Matrix) CheckMatrix() {
-	mult := []float64{m[0], m[1], m[3], m[4]}
-	sum := 0.0
-	for _, x := range mult {
-		sum += math.Abs(x)
-	}
-	if sum <= 1e-6 {
-		common.Log.Error("Zero matrix: %s", m.String())
-		panic(fmt.Errorf("Zero matrix: %s", m.String()))
+	xx, xy, yx, yy := math.Abs(m[0]), math.Abs(m[1]), math.Abs(m[3]), math.Abs(m[4])
+	goodXxYy := xx > minSafeScale && yy > minSafeScale
+	goodXyYx := xy > minSafeScale && yx > minSafeScale
+
+	if !(goodXxYy || goodXyYx) {
+		msg := fmt.Sprintf("Zero matrix: %s goodXxYy=%t goodXyYx=%t",
+			m.String(), goodXxYy, goodXyYx)
+		common.Log.Error("%s", msg)
+		panic(fmt.Errorf("%s", msg))
 	}
 }
+
+// minSafeScale is the minimum matrix scale that is expected to occur in a valid PDF file.
+const minSafeScale = 1e-6
 
 // maxAbsNumber defines the maximum absolute value of allowed practical matrix element values as needed
 // to avoid floating point exceptions.
