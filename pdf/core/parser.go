@@ -968,7 +968,13 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 	if entries == objCount+1 {
 		// For compatibility, expand the object count.
 		common.Log.Debug("BAD file: allowing compatibility (append one object to xref stm)")
-		indexList = append(indexList, objCount)
+		maxIndex := objCount - 1
+		for _, ind := range indexList {
+			if ind > maxIndex {
+				maxIndex = ind
+			}
+		}
+		indexList = append(indexList, maxIndex+1)
 		objCount++
 	}
 
@@ -1545,6 +1551,8 @@ func NewParserFromString(txt string) *PdfParser {
 
 	parser.fileSize = int64(len(txt))
 	parser.streamLengthReferenceLookupInProgress = map[int64]bool{}
+
+	parser.xrefs = XrefTable{}
 
 	return &parser
 }
