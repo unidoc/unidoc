@@ -840,6 +840,8 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 		parser.reader = bufio.NewReader(parser.rs)
 	}
 
+	xsOffset := parser.GetFileOffset()
+
 	xrefObj, err := parser.ParseIndirectObject()
 	if err != nil {
 		common.Log.Debug("ERROR: Failed to read xref object")
@@ -967,7 +969,7 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 
 	if entries == objCount+1 {
 		// For compatibility, expand the object count.
-		common.Log.Debug("BAD file: allowing compatibility (append one object to xref stm)")
+		common.Log.Debug("Incompatibility: Index missing coverage of 1 object - appending one - May lead to problems")
 		maxIndex := objCount - 1
 		for _, ind := range indexList {
 			if ind > maxIndex {
@@ -1046,6 +1048,14 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 			common.Log.Trace("- Free object - can probably ignore")
 		} else if ftype == 1 {
 			common.Log.Trace("- In use - uncompressed via offset %b", p2)
+			// If offset (n2) is same as the XRefs table offset, then update the Object number with the
+			// one that was parsed.  Fixes problem where the object number is incorrectly or not specified
+			// in the Index.
+			if n2 == xsOffset {
+				common.Log.Debug("Updating object number for XRef table %d -> %d", objNum, xs.ObjectNumber)
+				objNum = int(xs.ObjectNumber)
+			}
+
 			// Object type 1: Objects that are in use but are not
 			// compressed, i.e. defined by an offset (normal entry)
 			if xr, ok := parser.xrefs[objNum]; !ok || int(n3) > xr.Generation {
