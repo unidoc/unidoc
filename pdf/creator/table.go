@@ -7,6 +7,7 @@ package creator
 
 import (
 	"errors"
+	"math"
 	"sort"
 
 	"github.com/unidoc/unidoc/common"
@@ -206,9 +207,17 @@ func (table *Table) AddSubtable(row, col int, subtable *Table) {
 
 		// Extend number of rows, if needed.
 		c.row += row - 1
-		for c.row > table.rows {
-			table.rows++
-			table.rowHeights = append(table.rowHeights, table.defaultRowHeight)
+
+		subRowHeight := subtable.rowHeights[cell.row-1]
+		if c.row > table.rows {
+			for c.row > table.rows {
+				table.rows++
+				table.rowHeights = append(table.rowHeights, table.defaultRowHeight)
+			}
+
+			table.rowHeights[c.row-1] = subRowHeight
+		} else {
+			table.rowHeights[c.row-1] = math.Max(table.rowHeights[c.row-1], subRowHeight)
 		}
 
 		table.cells = append(table.cells, c)
