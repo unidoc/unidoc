@@ -122,6 +122,15 @@ func (table *Table) GetMargins() (float64, float64, float64, float64) {
 	return table.margins.left, table.margins.right, table.margins.top, table.margins.bottom
 }
 
+// GetRowHeight returns the height of the specified row.
+func (table *Table) GetRowHeight(row int) (float64, error) {
+	if row < 1 || row > len(table.rowHeights) {
+		return 0, errors.New("range check error")
+	}
+
+	return table.rowHeights[row-1], nil
+}
+
 // SetRowHeight sets the height for a specified row.
 func (table *Table) SetRowHeight(row int, h float64) error {
 	if row < 1 || row > len(table.rowHeights) {
