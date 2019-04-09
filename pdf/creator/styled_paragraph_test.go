@@ -672,3 +672,93 @@ func TestStyledParagraphCharacterSpacing(t *testing.T) {
 		t.Fatalf("Fail: %v\n", err)
 	}
 }
+
+func TestStyledLinkRotation(t *testing.T) {
+	c := New()
+	c.NewPage()
+
+	// Rotation 0 degrees.
+	p := c.NewStyledParagraph()
+	p.AddExternalLink("Link with no rotation", "https://google.com")
+	p.SetPos(50, 50)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotation 45 degrees.
+	p = c.NewStyledParagraph()
+	p.AddExternalLink("Link rotated 45 degrees", "https://google.com")
+	p.SetAngle(45)
+	p.SetPos(200, 100)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotation -45 degrees.
+	p = c.NewStyledParagraph()
+	p.AddExternalLink("Link rotated -45 degrees", "https://google.com")
+	p.SetAngle(-45)
+	p.SetPos(350, 25)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotation 90 degrees.
+	p = c.NewStyledParagraph()
+	p.AddExternalLink("Link rotated 90 degrees", "https://google.com")
+	p.SetAngle(90)
+	p.SetPos(50, 250)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotation -90 degrees.
+	p = c.NewStyledParagraph()
+	p.AddExternalLink("Link rotated -90 degrees", "https://google.com")
+	p.SetAngle(-90)
+	p.SetPos(100, 145)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotation 180 degrees.
+	p = c.NewStyledParagraph()
+	p.AddExternalLink("Link rotated 180 degrees", "https://google.com")
+	p.SetAngle(180)
+	p.SetPos(250, 150)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotation 225 degrees.
+	p = c.NewStyledParagraph()
+	p.AddExternalLink("Link rotated 225 degrees", "https://google.com")
+	p.SetAngle(225)
+	p.SetPos(375, 150)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotation 135 degrees.
+	p = c.NewStyledParagraph()
+	p.AddExternalLink("Link rotated 135 degrees", "https://google.com")
+	p.SetAngle(135)
+	p.SetPos(525, 230)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Write output file.
+	err := c.WriteToFile(tempFile("styled_paragraph_rotated_links.pdf"))
+	if err != nil {
+		t.Fatalf("Fail: %v\n", err)
+	}
+}
