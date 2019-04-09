@@ -968,26 +968,6 @@ func GetIndirect(obj PdfObject) (ind *PdfIndirectObject, found bool) {
 	obj = ResolveReference(obj)
 	ind, found = obj.(*PdfIndirectObject)
 	return ind, found
-
-	/*
-		switch t := obj.(type) {
-		case *PdfObjectReference:
-			if t.parser == nil {
-				common.Log.Debug("ERROR: parser = nil")
-				return nil, false
-			}
-			obj, err := t.parser.LookupByReference(*t)
-			if err != nil {
-				common.Log.Debug("ERROR: %v", err)
-				return nil, false
-			}
-			ind, found = obj.(*PdfIndirectObject)
-			return ind, found
-		case *PdfIndirectObject:
-			return t, true
-		}
-		return nil, false
-	*/
 }
 
 // GetStream returns the *PdfObjectStream represented by the PdfObject. On type mismatch the found bool flag is
@@ -996,26 +976,6 @@ func GetStream(obj PdfObject) (stream *PdfObjectStream, found bool) {
 	obj = ResolveReference(obj)
 	stream, found = obj.(*PdfObjectStream)
 	return stream, found
-	/*
-
-		switch t := obj.(type) {
-		case *PdfObjectReference:
-			if t.parser == nil {
-				common.Log.Debug("ERROR: parser = nil")
-				return nil, false
-			}
-			obj, err := t.parser.LookupByReference(*t)
-			if err != nil {
-				common.Log.Debug("ERROR: %v", err)
-				return nil, false
-			}
-			stream, found = obj.(*PdfObjectStream)
-			return stream, found
-		case *PdfObjectStream:
-			return t, true
-		}
-		return nil, false
-	*/
 }
 
 // GetObjectStreams returns the *PdfObjectStreams represented by the PdfObject. On type mismatch the found bool flag is
