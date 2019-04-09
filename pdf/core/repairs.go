@@ -38,7 +38,7 @@ func (parser *PdfParser) repairLocateXref() (int64, error) {
 	results := repairReXrefTable.FindAllStringIndex(string(b2), -1)
 	if len(results) < 1 {
 		common.Log.Debug("ERROR: Repair: xref not found!")
-		return 0, errors.New("Repair: xref not found")
+		return 0, errors.New("repair: xref not found")
 	}
 
 	localOffset := int64(results[len(results)-1][0])
@@ -70,8 +70,8 @@ func (parser *PdfParser) rebuildXrefTable() error {
 			return err
 		}
 
-		xref.objectNumber = int(actObjNum)
-		xref.generation = int(actGenNum)
+		xref.ObjectNumber = int(actObjNum)
+		xref.Generation = int(actGenNum)
 		newXrefs[int(actObjNum)] = xref
 	}
 
@@ -85,7 +85,7 @@ func (parser *PdfParser) rebuildXrefTable() error {
 func parseObjectNumberFromString(str string) (int, int, error) {
 	result := reIndirectObject.FindStringSubmatch(str)
 	if len(result) < 3 {
-		return 0, 0, errors.New("Unable to detect indirect object signature")
+		return 0, 0, errors.New("unable to detect indirect object signature")
 	}
 
 	on, _ := strconv.Atoi(result[1])
@@ -96,11 +96,11 @@ func parseObjectNumberFromString(str string) (int, int, error) {
 
 // Parse the entire file from top down.
 // Goes through the file byte-by-byte looking for "<num> <generation> obj" patterns.
-// N.B. This collects the XREF_TABLE_ENTRY data only.
+// N.B. This collects the XrefTypeTableEntry data only.
 func (parser *PdfParser) repairRebuildXrefsTopDown() (*XrefTable, error) {
 	if parser.repairsAttempted {
 		// Avoid multiple repairs (only try once).
-		return nil, fmt.Errorf("Repair failed")
+		return nil, fmt.Errorf("repair failed")
 	}
 	parser.repairsAttempted = true
 
@@ -167,13 +167,13 @@ func (parser *PdfParser) repairRebuildXrefsTopDown() (*XrefTable, error) {
 			}
 
 			// Create and insert the XREF entry if not existing, or the generation number is higher.
-			if curXref, has := xrefTable[objNum]; !has || curXref.generation < genNum {
+			if curXref, has := xrefTable[objNum]; !has || curXref.Generation < genNum {
 				// Make the entry for the cross ref table.
 				xrefEntry := XrefObject{}
-				xrefEntry.xtype = XREF_TABLE_ENTRY
-				xrefEntry.objectNumber = int(objNum)
-				xrefEntry.generation = int(genNum)
-				xrefEntry.offset = objOffset
+				xrefEntry.XType = XrefTypeTableEntry
+				xrefEntry.ObjectNumber = int(objNum)
+				xrefEntry.Generation = int(genNum)
+				xrefEntry.Offset = objOffset
 				xrefTable[objNum] = xrefEntry
 			}
 		}
@@ -195,7 +195,7 @@ func (parser *PdfParser) repairSeekXrefMarker() error {
 	reXrefTableStart := regexp.MustCompile(`\sxref\s*`)
 
 	// Define the starting point (from the end of the file) to search from.
-	var offset int64 = 0
+	var offset int64
 
 	// Define an buffer length in terms of how many bytes to read from the end of the file.
 	var buflen int64 = 1000
@@ -237,10 +237,9 @@ func (parser *PdfParser) repairSeekXrefMarker() error {
 			}
 
 			return nil
-		} else {
-			common.Log.Debug("Warning: EOF marker not found! - continue seeking")
 		}
 
+		common.Log.Debug("Warning: EOF marker not found! - continue seeking")
 		offset += buflen
 	}
 
@@ -282,5 +281,5 @@ func (parser *PdfParser) seekPdfVersionTopDown() (int, int, error) {
 		last = append(last[1:bufLen], b)
 	}
 
-	return 0, 0, errors.New("Version not found")
+	return 0, 0, errors.New("version not found")
 }
