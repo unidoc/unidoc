@@ -62,9 +62,13 @@ func ResolveReference(obj PdfObject) PdfObject {
 /*
  * ResolveReferencesDeep recursively traverses through object `o`, looking up and replacing
  * references with indirect objects.
+ * Optionally a map of already deep-resolved objects can be provided via `traversed`. The `traversed` map
+ * is updated while traversing the objects to avoid traversing same objects multiple times.
  */
-func ResolveReferencesDeep(o PdfObject) error {
-	traversed := map[PdfObject]struct{}{}
+func ResolveReferencesDeep(o PdfObject, traversed map[PdfObject]struct{}) error {
+	if traversed == nil {
+		traversed = map[PdfObject]struct{}{}
+	}
 	return resolveReferencesDeep(o, 0, traversed)
 }
 

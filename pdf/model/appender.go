@@ -34,6 +34,10 @@ type PdfAppender struct {
 	newObjects   []core.PdfObject
 	hasNewObject map[core.PdfObject]struct{}
 
+	// Map of objects traversed while resolving references. Set to that of the PdfReader on
+	// creation (NewPdfAppender).
+	traversed map[core.PdfObject]struct{}
+
 	written bool
 }
 
@@ -98,9 +102,10 @@ func getPageResources(p *PdfPage) map[core.PdfObjectName]core.PdfObject {
 // NewPdfAppender creates a new Pdf appender from a Pdf reader.
 func NewPdfAppender(reader *PdfReader) (*PdfAppender, error) {
 	a := &PdfAppender{
-		rs:     reader.rs,
-		Reader: reader,
-		parser: reader.parser,
+		rs:        reader.rs,
+		Reader:    reader,
+		parser:    reader.parser,
+		traversed: reader.traversed,
 	}
 	if _, err := a.rs.Seek(0, io.SeekStart); err != nil {
 		return nil, err
@@ -144,7 +149,7 @@ func (a *PdfAppender) addNewObjects(obj core.PdfObject) {
 	if _, ok := a.hasNewObject[obj]; ok || obj == nil {
 		return
 	}
-	err := core.ResolveReferencesDeep(obj)
+	err := core.ResolveReferencesDeep(obj, a.traversed)
 	if err != nil {
 		common.Log.Debug("ERROR: %v", err)
 	}

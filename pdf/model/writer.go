@@ -95,6 +95,9 @@ type PdfWriter struct {
 	ObjNumOffset      int
 	appendMode        bool
 	appendToXrefs     core.XrefTable
+
+	// Cache of objects traversed while resolving references.
+	traversed map[core.PdfObject]struct{}
 }
 
 // NewPdfWriter initializes a new PdfWriter.
@@ -104,6 +107,7 @@ func NewPdfWriter() PdfWriter {
 	w.objectsMap = map[core.PdfObject]bool{}
 	w.objects = []core.PdfObject{}
 	w.pendingObjects = map[core.PdfObject]*core.PdfObjectDictionary{}
+	w.traversed = map[core.PdfObject]struct{}{}
 
 	// PDF Version. Can be changed if using more advanced features in PDF.
 	// By default it is set to 1.3.
@@ -311,7 +315,7 @@ func (w *PdfWriter) hasObject(obj core.PdfObject) bool {
 func (w *PdfWriter) addObject(obj core.PdfObject) bool {
 	hasObj := w.hasObject(obj)
 	if !hasObj {
-		err := core.ResolveReferencesDeep(obj)
+		err := core.ResolveReferencesDeep(obj, w.traversed)
 		if err != nil {
 			common.Log.Debug("ERROR: %v - skipping", err)
 		}
