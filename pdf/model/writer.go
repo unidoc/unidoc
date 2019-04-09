@@ -39,6 +39,7 @@ func getPdfAuthor() string {
 	return pdfAuthor
 }
 
+// SetPdfAuthor will set the author in the metadata for the pdf
 func SetPdfAuthor(author string) {
 	pdfAuthor = author
 }
@@ -47,6 +48,7 @@ func getPdfCreationDate() time.Time {
 	return pdfCreationDate
 }
 
+// SetPdfCreationDate will set the creation date in the metadata for the pdf
 func SetPdfCreationDate(creationDate time.Time) {
 	pdfCreationDate = creationDate
 }
@@ -60,6 +62,7 @@ func getPdfCreator() string {
 	return "UniDoc - http://unidoc.io"
 }
 
+// SetPdfCreator will set the creator in the metadata for the pdf
 func SetPdfCreator(creator string) {
 	pdfCreator = creator
 }
@@ -68,6 +71,7 @@ func getPdfKeywords() string {
 	return pdfKeywords
 }
 
+// SetPdfKeywords will set the keywords in the metadata for the pdf
 func SetPdfKeywords(keywords string) {
 	pdfKeywords = keywords
 }
@@ -76,13 +80,13 @@ func getPdfModifiedDate() time.Time {
 	return pdfModifiedDate
 }
 
+// SetPdfModifiedDate will set the modified date in the metadata for the pdf
 func SetPdfModifiedDate(modifiedDate time.Time) {
 	pdfCreationDate = modifiedDate
 }
 
 func getPdfProducer() string {
 	licenseKey := license.GetLicenseKey()
-
 	if len(pdfProducer) > 0 && licenseKey.IsLicensed() {
 		return pdfProducer
 	}
@@ -91,6 +95,7 @@ func getPdfProducer() string {
 	return fmt.Sprintf("UniDoc v%s (%s) - http://unidoc.io", getUniDocVersion(), licenseKey.TypeToString())
 }
 
+// SetPdfProducer will set the producer in the metadata for the pdf
 func SetPdfProducer(producer string) {
 	pdfProducer = producer
 }
@@ -99,6 +104,7 @@ func getPdfSubject() string {
 	return pdfSubject
 }
 
+// SetPdfSubject will set the subject in the metadata for the pdf
 func SetPdfSubject(subject string) {
 	pdfSubject = subject
 }
@@ -107,6 +113,7 @@ func getPdfTitle() string {
 	return pdfTitle
 }
 
+// SetPdfTitle will set the title in the metadata for the pdf
 func SetPdfTitle(title string) {
 	pdfTitle = title
 }
@@ -158,18 +165,28 @@ func NewPdfWriter() PdfWriter {
 
 	// Creation info.
 	infoDict := MakeDict()
-	infoDict.Set("Author", MakeString(getPdfAuthor()))
+	metadata := map[PdfObjectName]string{
+		"Producer": getPdfProducer(),
+		"Creator":  getPdfCreator(),
+		"Author":   getPdfAuthor(),
+		"Subject":  getPdfSubject(),
+		"Title":    getPdfTitle(),
+		"Keywords": getPdfKeywords(),
+	}
+	for key, value := range metadata {
+		if value != "" {
+			infoDict.Set(key, MakeString(value))
+		}
+	}
+
+	// Set creation and modified dates.
 	if cd, err := NewPdfDateFromTime(getPdfCreationDate()); err == nil {
 		infoDict.Set("CreationDate", cd.ToPdfObject())
 	}
-	infoDict.Set("Creator", MakeString(getPdfCreator()))
-	infoDict.Set("Keywords", MakeString(getPdfKeywords()))
-	if cd, err := NewPdfDateFromTime(getPdfModifiedDate()); err == nil {
-		infoDict.Set("ModDate", cd.ToPdfObject())
+	if md, err := NewPdfDateFromTime(getPdfModifiedDate()); err == nil {
+		infoDict.Set("ModDate", md.ToPdfObject())
 	}
-	infoDict.Set("Producer", MakeString(getPdfProducer()))
-	infoDict.Set("Subject", MakeString(getPdfSubject()))
-	infoDict.Set("Title", MakeString(getPdfTitle()))
+
 	infoObj := PdfIndirectObject{}
 	infoObj.PdfObject = infoDict
 	w.infoObj = &infoObj

@@ -125,23 +125,23 @@ func NewPdfDate(dateStr string) (PdfDate, error) {
 	return d, nil
 }
 
+// NewPdfDateFromTime will create a PdfDate based on the given time
 func NewPdfDateFromTime(timeObj time.Time) (PdfDate, error) {
-	d := PdfDate{}
-
-	d.year = int64(timeObj.Year())
-	d.month = int64(timeObj.Month())
-	d.day = int64(timeObj.Day())
-	d.hour = int64(timeObj.Hour())
-	d.minute = int64(timeObj.Minute())
-	d.second = int64(timeObj.Second())
-
 	timezone := timeObj.Format("-07:00")
-	d.utOffsetSign = []byte(timezone[0:1])[0]
+	utOffsetHours, _ := strconv.ParseInt(timezone[1:3], 10, 32)
+	utOffsetMins, _ := strconv.ParseInt(timezone[4:6], 10, 32)
 
-	d.utOffsetHours, _ = strconv.ParseInt(timezone[1:3], 10, 32)
-	d.utOffsetMins, _ = strconv.ParseInt(timezone[4:6], 10, 32)
-
-	return d, nil
+	return PdfDate{
+		year:          int64(timeObj.Year()),
+		month:         int64(timeObj.Month()),
+		day:           int64(timeObj.Day()),
+		hour:          int64(timeObj.Hour()),
+		minute:        int64(timeObj.Minute()),
+		second:        int64(timeObj.Second()),
+		utOffsetSign:  timezone[0],
+		utOffsetHours: utOffsetHours,
+		utOffsetMins:  utOffsetMins,
+	}, nil
 }
 
 // Convert to a PDF string object.
