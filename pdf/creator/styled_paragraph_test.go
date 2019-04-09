@@ -756,6 +756,42 @@ func TestStyledLinkRotation(t *testing.T) {
 		t.Fatalf("Error drawing: %v", err)
 	}
 
+	// Rotate paragraph with text 90 degrees.
+	p = c.NewStyledParagraph()
+	p.Append("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lacus viverra vitae congue eu consequat. Cras adipiscing enim eu turpis. Lectus magna fringilla urna porttitor. Condimentum id venenatis a condimentum. Quis ipsum suspendisse ultrices gravida dictum fusce. In fermentum posuere urna nec tincidunt. Dis parturient montes nascetur ridiculus mus. Pharetra diam sit amet nisl suscipit adipiscing. Proin fermentum leo vel orci porta. Id diam vel quam elementum pulvinar.")
+	p.AddExternalLink("Link rotated 90 degrees", "https://google.com")
+	p.SetAngle(90)
+	p.SetWidth(200)
+	p.SetPos(50, 500)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotate paragraph with text -90 degrees.
+	p = c.NewStyledParagraph()
+	p.Append("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lacus viverra vitae congue eu consequat. Cras adipiscing enim eu turpis. Lectus magna fringilla urna porttitor. Condimentum id venenatis a condimentum. Quis ipsum suspendisse ultrices gravida dictum fusce. In fermentum posuere urna nec tincidunt. Dis parturient montes nascetur ridiculus mus. Pharetra diam sit amet nisl suscipit adipiscing. Proin fermentum leo vel orci porta. Id diam vel quam elementum pulvinar.")
+	p.AddExternalLink("Link rotated -90 degrees", "https://google.com")
+	p.SetAngle(-90)
+	p.SetWidth(200)
+	p.SetPos(340, 310)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
+	// Rotate paragraph with text -45 degrees.
+	p = c.NewStyledParagraph()
+	p.Append("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Lacus viverra vitae congue eu consequat. Cras adipiscing enim eu turpis. Lectus magna fringilla urna porttitor. Condimentum id venenatis a condimentum. Quis ipsum suspendisse ultrices gravida dictum fusce. In fermentum posuere urna nec tincidunt. Dis parturient montes nascetur ridiculus mus. Pharetra diam sit amet nisl suscipit adipiscing. Proin fermentum leo vel orci porta. Id diam vel quam elementum pulvinar.")
+	p.AddExternalLink("Link rotated -45 degrees", "https://google.com")
+	p.SetAngle(-45)
+	p.SetWidth(200)
+	p.SetPos(460, 310)
+
+	if err := c.Draw(p); err != nil {
+		t.Fatalf("Error drawing: %v", err)
+	}
+
 	// Write output file.
 	err := c.WriteToFile(tempFile("styled_paragraph_rotated_links.pdf"))
 	if err != nil {
