@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/core"
 	"github.com/unidoc/unidoc/pdf/model"
 )
@@ -302,7 +301,6 @@ func TestImageExtractionRealWorld(t *testing.T) {
 		},
 	}
 
-	common.SetLogger(common.NewConsoleLogger(common.LogLevelDebug))
 	for _, tcase := range testcases {
 		inputPath := filepath.Join(corpusFolder, tcase.Path)
 
