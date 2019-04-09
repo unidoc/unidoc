@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/common/license"
@@ -184,7 +185,7 @@ func NewPdfWriter() PdfWriter {
 
 	// Creation info.
 	infoDict := core.MakeDict()
-	metadata := map[PdfObjectName]string{
+	metadata := map[core.PdfObjectName]string{
 		"Producer": getPdfProducer(),
 		"Creator":  getPdfCreator(),
 		"Author":   getPdfAuthor(),
