@@ -31,20 +31,63 @@ type PdfReader struct {
 
 	modelManager *modelManager
 
+	// Lazy loading: When enabled reference objects need to be resolved (via lookup, disk access) rather
+	// than loading entire document into memory on load.
+	isLazy bool
+
 	// For tracking traversal (cache).
-	traversed map[core.PdfObject]bool
+	traversed map[core.PdfObject]struct{}
 	rs        io.ReadSeeker
 }
 
 // NewPdfReader returns a new PdfReader for an input io.ReadSeeker interface. Can be used to read PDF from
 // memory or file. Immediately loads and traverses the PDF structure including pages and page contents (if
-// not encrypted).
+// not encrypted). Loads entire document structure into memory.
+// Alternatively a lazy-loading reader can be created with NewPdfReaderLazy which loads only references,
+// and references are loaded from disk into memory on an as-needed basis.
 func NewPdfReader(rs io.ReadSeeker) (*PdfReader, error) {
-	pdfReader := &PdfReader{}
-	pdfReader.rs = rs
-	pdfReader.traversed = map[core.PdfObject]bool{}
+	pdfReader := &PdfReader{
+		rs:           rs,
+		traversed:    map[core.PdfObject]struct{}{},
+		modelManager: newModelManager(),
+		isLazy:       false,
+	}
 
-	pdfReader.modelManager = newModelManager()
+	// Create the parser, loads the cross reference table and trailer.
+	parser, err := core.NewParser(rs)
+	if err != nil {
+		return nil, err
+	}
+	pdfReader.parser = parser
+
+	isEncrypted, err := pdfReader.IsEncrypted()
+	if err != nil {
+		return nil, err
+	}
+
+	// Load pdf doc structure if not encrypted.
+	if !isEncrypted {
+		err = pdfReader.loadStructure()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return pdfReader, nil
+}
+
+// NewPdfReaderLazy creates a new PdfReader for `rs` in lazy-loading mode. The difference
+// from NewPdfReader is that in lazy-loading mode, objects are only loaded into memory when needed
+// rather than entire structure being loaded into memory on reader creation.
+// Note that it may make sense to use the lazy-load reader when processing only parts of files,
+// rather than loading entire file into memory. Example: splitting a few pages from a large PDF file.
+func NewPdfReaderLazy(rs io.ReadSeeker) (*PdfReader, error) {
+	pdfReader := &PdfReader{
+		rs:           rs,
+		traversed:    map[core.PdfObject]struct{}{},
+		modelManager: newModelManager(),
+		isLazy:       true,
+	}
 
 	// Create the parser, loads the cross reference table and trailer.
 	parser, err := core.NewParser(rs)
@@ -183,7 +226,7 @@ func (r *PdfReader) loadStructure() error {
 	r.pageCount = int(*pageCount)
 	r.pageList = []*core.PdfIndirectObject{}
 
-	traversedPageNodes := map[core.PdfObject]bool{}
+	traversedPageNodes := map[core.PdfObject]struct{}{}
 	err = r.buildPageList(ppages, nil, traversedPageNodes)
 	if err != nil {
 		return err
@@ -451,10 +494,12 @@ func (r *PdfReader) loadForms() (*PdfAcroForm, error) {
 
 	// Ensure we have access to everything.
 	common.Log.Trace("Traverse the Acroforms structure")
-	err = r.traverseObjectData(formsDict)
-	if err != nil {
-		common.Log.Debug("ERROR: Unable to traverse AcroForms (%s)", err)
-		return nil, err
+	if !r.isLazy {
+		err = r.traverseObjectData(formsDict)
+		if err != nil {
+			common.Log.Debug("ERROR: Unable to traverse AcroForms (%s)", err)
+			return nil, err
+		}
 	}
 
 	// Create the acro forms object.
@@ -475,7 +520,7 @@ func (r *PdfReader) lookupPageByObject(obj core.PdfObject) (*PdfPage, error) {
 // Build the table of contents.
 // tree, ex: Pages -> Pages -> Pages -> Page
 // Traverse through the whole thing recursively.
-func (r *PdfReader) buildPageList(node *core.PdfIndirectObject, parent *core.PdfIndirectObject, traversedPageNodes map[core.PdfObject]bool) error {
+func (r *PdfReader) buildPageList(node *core.PdfIndirectObject, parent *core.PdfIndirectObject, traversedPageNodes map[core.PdfObject]struct{}) error {
 	if node == nil {
 		return nil
 	}
@@ -484,7 +529,7 @@ func (r *PdfReader) buildPageList(node *core.PdfIndirectObject, parent *core.Pdf
 		common.Log.Debug("Cyclic recursion, skipping")
 		return nil
 	}
-	traversedPageNodes[node] = true
+	traversedPageNodes[node] = struct{}{}
 
 	nodeDict, ok := node.PdfObject.(*core.PdfObjectDictionary)
 	if !ok {
@@ -523,9 +568,11 @@ func (r *PdfReader) buildPageList(node *core.PdfIndirectObject, parent *core.Pdf
 	}
 
 	// Resolve the object recursively.
-	err := r.traverseObjectData(node)
-	if err != nil {
-		return err
+	if !r.isLazy {
+		err := r.traverseObjectData(node)
+		if err != nil {
+			return err
+		}
 	}
 
 	kidsObj, err := r.parser.Resolve(nodeDict.Get("Kids"))
@@ -548,7 +595,7 @@ func (r *PdfReader) buildPageList(node *core.PdfIndirectObject, parent *core.Pdf
 	}
 	common.Log.Trace("Kids: %s", kids)
 	for idx, child := range kids.Elements() {
-		child, ok := child.(*core.PdfIndirectObject)
+		child, ok := core.GetIndirect(child)
 		if !ok {
 			common.Log.Debug("ERROR: Page not indirect object - (%s)", child)
 			return errors.New("page not indirect object")
@@ -599,7 +646,7 @@ func (r *PdfReader) traverseObjectData(o core.PdfObject) error {
 		common.Log.Trace("-Already traversed...")
 		return nil
 	}
-	r.traversed[o] = true
+	r.traversed[o] = struct{}{}
 
 	if io, isIndirectObj := o.(*core.PdfIndirectObject); isIndirectObj {
 		common.Log.Trace("io: %s", io)
@@ -737,9 +784,11 @@ func (r *PdfReader) GetOCProperties() (core.PdfObject, error) {
 	// Should be pretty safe. Should not be referencing to pages or
 	// any large structures.  Local structures and references
 	// to OC Groups.
-	err = r.traverseObjectData(obj)
-	if err != nil {
-		return nil, err
+	if !r.isLazy {
+		err = r.traverseObjectData(obj)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return obj, nil

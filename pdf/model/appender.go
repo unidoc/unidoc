@@ -144,6 +144,11 @@ func (a *PdfAppender) addNewObjects(obj core.PdfObject) {
 	if _, ok := a.hasNewObject[obj]; ok || obj == nil {
 		return
 	}
+	err := core.ResolveReferencesDeep(obj)
+	if err != nil {
+		common.Log.Debug("ERROR: %v", err)
+	}
+
 	switch v := obj.(type) {
 	case *core.PdfIndirectObject:
 		// If the current parser is different from the read-only parser, then
@@ -499,6 +504,7 @@ func (a *PdfAppender) Write(w io.Writer) error {
 	for _, p := range a.pages {
 		// Update the count.
 		obj := p.ToPdfObject()
+
 		*pageCount = *pageCount + 1
 		// Check the object is not changing.
 		// If the indirect object has the parser which equals to the readonly then the object is not changed.

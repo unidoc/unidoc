@@ -244,6 +244,24 @@ func (ref *PdfObjectReference) GetParser() *PdfParser {
 	return ref.parser
 }
 
+// Resolve resolves the reference and returns the indirect or stream object.
+// If the reference cannot be resolved, a *PdfObjectNull object is returned.
+func (ref *PdfObjectReference) Resolve() PdfObject {
+	if ref.parser == nil {
+		return MakeNull()
+	}
+	obj, _, err := ref.parser.resolveReference(ref)
+	if err != nil {
+		common.Log.Debug("ERROR resolving reference: %v - returning null object", err)
+		return MakeNull()
+	}
+	if obj == nil {
+		common.Log.Debug("ERROR resolving reference: nil object - returning a null object", err)
+		return MakeNull()
+	}
+	return obj
+}
+
 // String returns the state of the bool as "true" or "false".
 func (bool *PdfObjectBool) String() string {
 	if *bool {
@@ -808,21 +826,23 @@ func (null *PdfObjectNull) WriteString() string {
 // Handy functions to work with primitive objects.
 
 // TraceMaxDepth specifies the maximum recursion depth allowed.
-const TraceMaxDepth = 20
+const traceMaxDepth = 10
 
 // TraceToDirectObject traces a PdfObject to a direct object.  For example direct objects contained
 // in indirect objects (can be double referenced even).
-//
-// Note: This function does not trace/resolve references. That needs to be done beforehand.
 func TraceToDirectObject(obj PdfObject) PdfObject {
+	if ref, isRef := obj.(*PdfObjectReference); isRef {
+		obj = ref.Resolve()
+	}
+
 	iobj, isIndirectObj := obj.(*PdfIndirectObject)
 	depth := 0
 	for isIndirectObj {
 		obj = iobj.PdfObject
-		iobj, isIndirectObj = obj.(*PdfIndirectObject)
+		iobj, isIndirectObj = GetIndirect(obj)
 		depth++
-		if depth > TraceMaxDepth {
-			common.Log.Error("ERROR: Trace depth level beyond %d - not going deeper!", TraceMaxDepth)
+		if depth > traceMaxDepth {
+			common.Log.Error("ERROR: Trace depth level beyond %d - not going deeper!", traceMaxDepth)
 			return nil
 		}
 	}
@@ -945,15 +965,57 @@ func GetDict(obj PdfObject) (dict *PdfObjectDictionary, found bool) {
 // GetIndirect returns the *PdfIndirectObject represented by the PdfObject. On type mismatch the found bool flag is
 // false and a nil pointer is returned.
 func GetIndirect(obj PdfObject) (ind *PdfIndirectObject, found bool) {
+	obj = ResolveReference(obj)
 	ind, found = obj.(*PdfIndirectObject)
 	return ind, found
+
+	/*
+		switch t := obj.(type) {
+		case *PdfObjectReference:
+			if t.parser == nil {
+				common.Log.Debug("ERROR: parser = nil")
+				return nil, false
+			}
+			obj, err := t.parser.LookupByReference(*t)
+			if err != nil {
+				common.Log.Debug("ERROR: %v", err)
+				return nil, false
+			}
+			ind, found = obj.(*PdfIndirectObject)
+			return ind, found
+		case *PdfIndirectObject:
+			return t, true
+		}
+		return nil, false
+	*/
 }
 
 // GetStream returns the *PdfObjectStream represented by the PdfObject. On type mismatch the found bool flag is
 // false and a nil pointer is returned.
 func GetStream(obj PdfObject) (stream *PdfObjectStream, found bool) {
+	obj = ResolveReference(obj)
 	stream, found = obj.(*PdfObjectStream)
 	return stream, found
+	/*
+
+		switch t := obj.(type) {
+		case *PdfObjectReference:
+			if t.parser == nil {
+				common.Log.Debug("ERROR: parser = nil")
+				return nil, false
+			}
+			obj, err := t.parser.LookupByReference(*t)
+			if err != nil {
+				common.Log.Debug("ERROR: %v", err)
+				return nil, false
+			}
+			stream, found = obj.(*PdfObjectStream)
+			return stream, found
+		case *PdfObjectStream:
+			return t, true
+		}
+		return nil, false
+	*/
 }
 
 // GetObjectStreams returns the *PdfObjectStreams represented by the PdfObject. On type mismatch the found bool flag is

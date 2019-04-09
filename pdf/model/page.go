@@ -265,9 +265,6 @@ func (r *PdfReader) newPdfPageFromDict(p *core.PdfObjectDictionary) (*PdfPage, e
 	if obj := d.Get("Trans"); obj != nil {
 		page.Trans = obj
 	}
-	//if obj := d.Get("Annots"); obj != nil {
-	//	page.Annots = obj
-	//}
 	if obj := d.Get("AA"); obj != nil {
 		page.AA = obj
 	}
@@ -378,12 +375,7 @@ func (p *PdfPage) GetMediaBox() (*PdfRectangle, error) {
 
 	node := p.Parent
 	for node != nil {
-		dictObj, ok := node.(*core.PdfIndirectObject)
-		if !ok {
-			return nil, errors.New("invalid parent object")
-		}
-
-		dict, ok := dictObj.PdfObject.(*core.PdfObjectDictionary)
+		dict, ok := core.GetDict(node)
 		if !ok {
 			return nil, errors.New("invalid parent objects dictionary")
 		}
@@ -416,18 +408,14 @@ func (p *PdfPage) getResources() (*PdfPageResources, error) {
 
 	node := p.Parent
 	for node != nil {
-		dictObj, ok := node.(*core.PdfIndirectObject)
+		dict, ok := core.GetDict(node)
 		if !ok {
+			common.Log.Debug("ERROR: invalid parent node")
 			return nil, errors.New("invalid parent object")
 		}
 
-		dict, ok := dictObj.PdfObject.(*core.PdfObjectDictionary)
-		if !ok {
-			return nil, errors.New("invalid parent objects dictionary")
-		}
-
 		if obj := dict.Get("Resources"); obj != nil {
-			prDict, ok := core.TraceToDirectObject(obj).(*core.PdfObjectDictionary)
+			prDict, ok := core.GetDict(obj)
 			if !ok {
 				return nil, errors.New("invalid resource dict")
 			}
@@ -826,19 +814,20 @@ func (p *PdfPage) SetContentStreams(cStreams []string, encoder core.StreamEncode
 }
 
 func getContentStreamAsString(cstreamObj core.PdfObject) (string, error) {
-	if cstream, ok := core.TraceToDirectObject(cstreamObj).(*core.PdfObjectString); ok {
-		return cstream.Str(), nil
-	}
+	cstreamObj = core.TraceToDirectObject(cstreamObj)
 
-	if cstream, ok := core.TraceToDirectObject(cstreamObj).(*core.PdfObjectStream); ok {
-		buf, err := core.DecodeStream(cstream)
+	switch v := cstreamObj.(type) {
+	case *core.PdfObjectString:
+		return v.Str(), nil
+	case *core.PdfObjectStream:
+		buf, err := core.DecodeStream(v)
 		if err != nil {
 			return "", err
 		}
-
 		return string(buf), nil
 	}
-	return "", fmt.Errorf("invalid content stream object holder (%T)", core.TraceToDirectObject(cstreamObj))
+
+	return "", fmt.Errorf("invalid content stream object holder (%T)", cstreamObj)
 }
 
 // GetContentStreams returns the content stream as an array of strings.

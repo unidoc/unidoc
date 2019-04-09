@@ -341,7 +341,7 @@ func (r *PdfPageResources) GetXObjectByName(keyName core.PdfObjectName) (*core.P
 	}
 
 	if obj := xresDict.Get(keyName); obj != nil {
-		stream, ok := obj.(*core.PdfObjectStream)
+		stream, ok := core.GetStream(obj)
 		if !ok {
 			common.Log.Debug("XObject not pointing to a stream %T", obj)
 			return nil, XObjectTypeUndefined

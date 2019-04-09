@@ -165,9 +165,11 @@ func (r *PdfReader) newPdfOutlineItemFromIndirectObject(container *core.PdfIndir
 		if err != nil {
 			return nil, err
 		}
-		err := r.traverseObjectData(item.Dest)
-		if err != nil {
-			return nil, err
+		if !r.isLazy {
+			err := r.traverseObjectData(item.Dest)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if obj := dict.Get("A"); obj != nil {
@@ -175,9 +177,11 @@ func (r *PdfReader) newPdfOutlineItemFromIndirectObject(container *core.PdfIndir
 		if err != nil {
 			return nil, err
 		}
-		err := r.traverseObjectData(item.A)
-		if err != nil {
-			return nil, err
+		if !r.isLazy {
+			err := r.traverseObjectData(item.A)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if obj := dict.Get("SE"); obj != nil {

@@ -1602,6 +1602,20 @@ func NewParser(rs io.ReadSeeker) (*PdfParser, error) {
 	return parser, nil
 }
 
+// Resolves a reference, returning the object and indicates whether or not it was cached.
+func (parser *PdfParser) resolveReference(ref *PdfObjectReference) (PdfObject, bool, error) {
+	cachedObj, isCached := parser.ObjCache[int(ref.ObjectNumber)]
+	if isCached {
+		return cachedObj, true, nil
+	}
+	obj, err := parser.LookupByReference(*ref)
+	if err != nil {
+		return nil, false, err
+	}
+	parser.ObjCache[int(ref.ObjectNumber)] = obj
+	return obj, false, nil
+}
+
 // IsEncrypted checks if the document is encrypted. A bool flag is returned indicating the result.
 // First time when called, will check if the Encrypt dictionary is accessible through the trailer dictionary.
 // If encrypted, prepares a crypt datastructure which can be used to authenticate and decrypt the document.
