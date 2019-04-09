@@ -13,6 +13,7 @@ import (
 
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/contentstream"
+	"github.com/unidoc/unidoc/pdf/contentstream/draw"
 	"github.com/unidoc/unidoc/pdf/core"
 	"github.com/unidoc/unidoc/pdf/model"
 )
@@ -764,16 +765,21 @@ func drawStyledParagraphOnBlock(blk *Block, p *StyledParagraph, ctx DrawContext)
 
 				// Set the coordinates of the annotation.
 				if annotRect != nil {
+					// Calculate rotated annotation position.
+					annotPos := draw.NewPoint(currX-ctx.X, currY-yPos).Rotate(p.angle)
+					annotPos.X += ctx.X
+					annotPos.Y += yPos
+
 					// Calculate rotated annotation bounding box.
 					offX, offY, annotW, annotH := rotateRect(chunkWidth, height, p.angle)
-					annotX := currX + offX
-					annotY := currY + offY
+					annotPos.X += offX
+					annotPos.Y += offY
 
 					annotRect.Clear()
-					annotRect.Append(core.MakeFloat(annotX))
-					annotRect.Append(core.MakeFloat(annotY))
-					annotRect.Append(core.MakeFloat(annotX + annotW))
-					annotRect.Append(core.MakeFloat(annotY + annotH))
+					annotRect.Append(core.MakeFloat(annotPos.X))
+					annotRect.Append(core.MakeFloat(annotPos.Y))
+					annotRect.Append(core.MakeFloat(annotPos.X + annotW))
+					annotRect.Append(core.MakeFloat(annotPos.Y + annotH))
 				}
 
 				blk.AddAnnotation(chunk.annotation)
