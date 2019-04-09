@@ -764,11 +764,16 @@ func drawStyledParagraphOnBlock(blk *Block, p *StyledParagraph, ctx DrawContext)
 
 				// Set the coordinates of the annotation.
 				if annotRect != nil {
+					// Calculate rotated annotation bounding box.
+					offX, offY, annotW, annotH := rotateRect(chunkWidth, height, p.angle)
+					annotX := currX + offX
+					annotY := currY + offY
+
 					annotRect.Clear()
-					annotRect.Append(core.MakeFloat(currX))
-					annotRect.Append(core.MakeFloat(currY))
-					annotRect.Append(core.MakeFloat(currX + chunkWidth))
-					annotRect.Append(core.MakeFloat(currY + height))
+					annotRect.Append(core.MakeFloat(annotX))
+					annotRect.Append(core.MakeFloat(annotY))
+					annotRect.Append(core.MakeFloat(annotX + annotW))
+					annotRect.Append(core.MakeFloat(annotY + annotH))
 				}
 
 				blk.AddAnnotation(chunk.annotation)
