@@ -178,12 +178,6 @@ func (r *PdfReader) newPdfOutlineItemFromIndirectObject(container *core.PdfIndir
 		// TODO: To add structure element support.
 		// Currently not supporting structure elements.
 		item.SE = nil
-		/*
-			item.SE, err = r.traceToObject(obj)
-			if err != nil {
-				return nil, err
-			}
-		*/
 	}
 	if obj := dict.Get("C"); obj != nil {
 		item.C = core.ResolveReference(obj)
