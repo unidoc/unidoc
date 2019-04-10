@@ -252,39 +252,6 @@ func (r *PdfReader) loadStructure() error {
 	return nil
 }
 
-// Trace to object.  Keeps a list of already visited references to avoid circular references.
-//
-// Example circular reference.
-// 1 0 obj << /Next 2 0 R >>
-// 2 0 obj << /Next 1 0 R >>
-//
-func (r *PdfReader) traceToObjectWrapper(obj core.PdfObject, refList map[*core.PdfObjectReference]bool) (core.PdfObject, error) {
-	// Keep a list of references to avoid circular references.
-
-	ref, isRef := obj.(*core.PdfObjectReference)
-	if isRef {
-		// Make sure not already visited (circular ref).
-		if _, alreadyTraversed := refList[ref]; alreadyTraversed {
-			return nil, errors.New("circular reference")
-		}
-		refList[ref] = true
-		obj, err := r.parser.LookupByReference(*ref)
-		if err != nil {
-			return nil, err
-		}
-		return r.traceToObjectWrapper(obj, refList)
-	}
-
-	// Not a reference, an object. Can be indirect or any direct pdf
-	// object (other than reference).
-	return obj, nil
-}
-
-func (r *PdfReader) traceToObject(obj core.PdfObject) (core.PdfObject, error) {
-	refList := map[*core.PdfObjectReference]bool{}
-	return r.traceToObjectWrapper(obj, refList)
-}
-
 func (r *PdfReader) loadOutlines() (*PdfOutlineTreeNode, error) {
 	if r.parser.GetCrypter() != nil && !r.parser.IsAuthenticated() {
 		return nil, fmt.Errorf("file need to be decrypted first")
@@ -299,11 +266,7 @@ func (r *PdfReader) loadOutlines() (*PdfOutlineTreeNode, error) {
 
 	common.Log.Trace("-Has outlines")
 	// Trace references to the object.
-	outlineRootObj, err := r.traceToObject(outlinesObj)
-	if err != nil {
-		common.Log.Debug("ERROR: Failed to read outlines")
-		return nil, err
-	}
+	outlineRootObj := core.ResolveReference(outlinesObj)
 	common.Log.Trace("Outline root: %v", outlineRootObj)
 
 	if _, isNull := outlineRootObj.(*core.PdfObjectNull); isNull {
@@ -359,11 +322,8 @@ func (r *PdfReader) buildOutlineTree(obj core.PdfObject, parent *PdfOutlineTreeN
 		outlineItem.Prev = prev
 
 		if firstObj := dict.Get("First"); firstObj != nil {
-			firstObj, err = r.traceToObject(firstObj)
-			if err != nil {
-				return nil, nil, err
-			}
-			if _, isNull := firstObj.(*core.PdfObjectNull); !isNull {
+			firstObj = core.ResolveReference(firstObj)
+			if !core.IsNullObject(firstObj) {
 				first, last, err := r.buildOutlineTree(firstObj, &outlineItem.PdfOutlineTreeNode, nil)
 				if err != nil {
 					return nil, nil, err
@@ -375,10 +335,7 @@ func (r *PdfReader) buildOutlineTree(obj core.PdfObject, parent *PdfOutlineTreeN
 
 		// Resolve the reference to next
 		if nextObj := dict.Get("Next"); nextObj != nil {
-			nextObj, err = r.traceToObject(nextObj)
-			if err != nil {
-				return nil, nil, err
-			}
+			nextObj = core.ResolveReference(nextObj)
 			if _, isNull := nextObj.(*core.PdfObjectNull); !isNull {
 				next, last, err := r.buildOutlineTree(nextObj, parent, &outlineItem.PdfOutlineTreeNode)
 				if err != nil {
@@ -401,10 +358,7 @@ func (r *PdfReader) buildOutlineTree(obj core.PdfObject, parent *PdfOutlineTreeN
 
 	if firstObj := dict.Get("First"); firstObj != nil {
 		// Has children...
-		firstObj, err = r.traceToObject(firstObj)
-		if err != nil {
-			return nil, nil, err
-		}
+		firstObj = core.ResolveReference(firstObj)
 		firstObjDirect := core.TraceToDirectObject(firstObj)
 		if _, isNull := firstObjDirect.(*core.PdfObjectNull); !isNull && firstObjDirect != nil {
 			first, last, err := r.buildOutlineTree(firstObj, &outline.PdfOutlineTreeNode, nil)
@@ -472,11 +426,6 @@ func (r *PdfReader) loadForms() (*PdfAcroForm, error) {
 		// Nothing to load.
 		return nil, nil
 	}
-	var err error
-	obj, err = r.traceToObject(obj)
-	if err != nil {
-		return nil, err
-	}
 	obj = core.TraceToDirectObject(obj)
 	if _, isNull := obj.(*core.PdfObjectNull); isNull {
 		common.Log.Trace("Acroform is a null object (empty)\n")
@@ -495,7 +444,7 @@ func (r *PdfReader) loadForms() (*PdfAcroForm, error) {
 	// Ensure we have access to everything.
 	common.Log.Trace("Traverse the Acroforms structure")
 	if !r.isLazy {
-		err = r.traverseObjectData(formsDict)
+		err := r.traverseObjectData(formsDict)
 		if err != nil {
 			common.Log.Debug("ERROR: Unable to traverse AcroForms (%s)", err)
 			return nil, err
@@ -716,7 +665,6 @@ func (r *PdfReader) traverseObjectData(o core.PdfObject) error {
 	return nil
 }
 
-
 // PageFromIndirectObject returns the PdfPage and page number for a given indirect object.
 func (r *PdfReader) PageFromIndirectObject(ind *core.PdfIndirectObject) (*PdfPage, int, error) {
 	if len(r.PageList) != len(r.pageList) {
@@ -751,18 +699,14 @@ func (r *PdfReader) GetPage(pageNumber int) (*PdfPage, error) {
 func (r *PdfReader) GetOCProperties() (core.PdfObject, error) {
 	dict := r.catalog
 	obj := dict.Get("OCProperties")
-	var err error
-	obj, err = r.traceToObject(obj)
-	if err != nil {
-		return nil, err
-	}
+	obj = core.ResolveReference(obj)
 
 	// Resolve all references...
 	// Should be pretty safe. Should not be referencing to pages or
 	// any large structures.  Local structures and references
 	// to OC Groups.
 	if !r.isLazy {
-		err = r.traverseObjectData(obj)
+		err := r.traverseObjectData(obj)
 		if err != nil {
 			return nil, err
 		}
