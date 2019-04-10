@@ -25,12 +25,11 @@ import (
 	"github.com/unidoc/unidoc/pdf/core/security/crypt"
 )
 
-
 var pdfAuthor = ""
-var pdfCreationDate = time.Now()
+var pdfCreationDate time.Time
 var pdfCreator = ""
 var pdfKeywords = ""
-var pdfModifiedDate = time.Now()
+var pdfModifiedDate time.Time
 var pdfProducer = ""
 var pdfSubject = ""
 var pdfTitle = ""
@@ -90,7 +89,7 @@ func getPdfModifiedDate() time.Time {
 	return pdfModifiedDate
 }
 
-// SetPdfModifiedDate sets the ModifiedDate attribute of the output PDF.
+// SetPdfModifiedDate sets the ModDate attribute of the output PDF.
 func SetPdfModifiedDate(modifiedDate time.Time) {
 	pdfCreationDate = modifiedDate
 }
@@ -185,29 +184,43 @@ func NewPdfWriter() PdfWriter {
 
 	// Creation info.
 	infoDict := core.MakeDict()
-	metadata := map[core.PdfObjectName]string{
-		"Producer": getPdfProducer(),
-		"Creator":  getPdfCreator(),
-		"Author":   getPdfAuthor(),
-		"Subject":  getPdfSubject(),
-		"Title":    getPdfTitle(),
-		"Keywords": getPdfKeywords(),
+	metadata := []struct {
+		key   core.PdfObjectName
+		value string
+	}{
+		{
+			"Producer", getPdfProducer(),
+		}, {
+			"Creator", getPdfCreator(),
+		}, {
+			"Author", getPdfAuthor(),
+		}, {
+			"Subject", getPdfSubject(),
+		}, {
+			"Title", getPdfTitle(),
+		}, {
+			"Keywords", getPdfKeywords(),
+		},
 	}
-	for key, value := range metadata {
-		if value != "" {
-			infoDict.Set(key, core.MakeString(value))
+	for _, tuple := range metadata {
+		if tuple.value != "" {
+			infoDict.Set(tuple.key, core.MakeString(tuple.value))
 		}
 	}
 
 	// Set creation and modified dates.
-	if cd, err := NewPdfDateFromTime(getPdfCreationDate()); err == nil {
-		infoDict.Set("CreationDate", cd.ToPdfObject())
+	if creationDate := getPdfCreationDate(); !creationDate.IsZero() {
+		if cd, err := NewPdfDateFromTime(creationDate); err == nil {
+			infoDict.Set("CreationDate", cd.ToPdfObject())
+		}
 	}
-	if md, err := NewPdfDateFromTime(getPdfModifiedDate()); err == nil {
-		infoDict.Set("ModDate", md.ToPdfObject())
+	if modifiedDate := getPdfModifiedDate(); !modifiedDate.IsZero() {
+		if md, err := NewPdfDateFromTime(modifiedDate); err == nil {
+			infoDict.Set("ModDate", md.ToPdfObject())
+		}
 	}
 
-  infoObj := core.PdfIndirectObject{}
+	infoObj := core.PdfIndirectObject{}
 	infoObj.PdfObject = infoDict
 	w.infoObj = &infoObj
 	w.addObject(&infoObj)
