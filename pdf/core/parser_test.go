@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -17,10 +18,6 @@ import (
 
 	"github.com/unidoc/unidoc/common"
 )
-
-func init() {
-	common.SetLogger(common.NewConsoleLogger(common.LogLevelDebug))
-}
 
 func makeReaderForText(txt string) (*bytes.Reader, *bufio.Reader, int64) {
 	buf := []byte(txt)
@@ -92,6 +89,24 @@ func TestNameParsing(t *testing.T) {
 	if err == nil || err == io.EOF {
 		t.Errorf("Should be invalid name")
 	}
+}
+
+func TestBigDictParse(t *testing.T) {
+	f, err := os.Open(`./testdata/bigdict`)
+	require.NoError(t, err)
+	defer f.Close()
+
+	fInfo, err := f.Stat()
+	require.NoError(t, err)
+
+	reader := bufio.NewReader(f)
+	parser := &PdfParser{rs: f, reader: reader, fileSize: fInfo.Size()}
+
+	val, err := parser.parseObject()
+	require.NoError(t, err)
+	require.NotNil(t, val)
+
+	fmt.Printf("Val: %T\n", val)
 }
 
 func BenchmarkStringParsing(b *testing.B) {

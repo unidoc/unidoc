@@ -646,18 +646,10 @@ func (d *PdfObjectDictionary) WriteString() string {
 
 // Set sets the dictionary's key -> val mapping entry. Overwrites if key already set.
 func (d *PdfObjectDictionary) Set(key PdfObjectName, val PdfObject) {
-	found := false
-	for _, k := range d.keys {
-		if k == key {
-			found = true
-			break
-		}
-	}
-
+	_, found := d.dict[key]
 	if !found {
 		d.keys = append(d.keys, key)
 	}
-
 	d.dict[key] = val
 }
 
