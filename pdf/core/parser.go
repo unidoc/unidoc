@@ -27,7 +27,7 @@ var reEOF = regexp.MustCompile("%%EOF")
 var reXrefTable = regexp.MustCompile(`\s*xref\s*`)
 var reStartXref = regexp.MustCompile(`startx?ref\s*(\d+)`)
 var reNumeric = regexp.MustCompile(`^[\+-.]*([0-9.]+)`)
-var reExponential = regexp.MustCompile(`^[\+-.]*([0-9.]+)e[\+-.]*([0-9.]+)`)
+var reExponential = regexp.MustCompile(`^[\+-.]*([0-9.]+)[eE][\+-.]*([0-9.]+)`)
 var reReference = regexp.MustCompile(`^\s*(\d+)\s+(\d+)\s+R`)
 var reIndirectObject = regexp.MustCompile(`(\d+)\s+(\d+)\s+obj`)
 var reXrefSubsection = regexp.MustCompile(`(\d+)\s+(\d+)\s*$`)
@@ -230,7 +230,9 @@ func (parser *PdfParser) parseName() (PdfObjectName, error) {
 
 				code, err := hex.DecodeString(string(hexcode[1:3]))
 				if err != nil {
-					return PdfObjectName(r.String()), err
+					common.Log.Debug("ERROR: Invalid hex following '#', continuing using literal - Output may be incorrect")
+					r.WriteByte('#') // Treat as literal '#' rather than hex code.
+					continue
 				}
 				r.Write(code)
 			} else {
@@ -291,7 +293,7 @@ func (parser *PdfParser) parseNumber() (PdfObject, error) {
 			b, _ := parser.reader.ReadByte()
 			r.WriteByte(b)
 			isFloat = true
-		} else if bb[0] == 'e' {
+		} else if bb[0] == 'e' || bb[0] == 'E' {
 			// Exponential number format.
 			b, _ := parser.reader.ReadByte()
 			r.WriteByte(b)
@@ -838,6 +840,8 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 		parser.reader = bufio.NewReader(parser.rs)
 	}
 
+	xsOffset := parser.GetFileOffset()
+
 	xrefObj, err := parser.ParseIndirectObject()
 	if err != nil {
 		common.Log.Debug("ERROR: Failed to read xref object")
@@ -965,8 +969,14 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 
 	if entries == objCount+1 {
 		// For compatibility, expand the object count.
-		common.Log.Debug("BAD file: allowing compatibility (append one object to xref stm)")
-		indexList = append(indexList, objCount)
+		common.Log.Debug("Incompatibility: Index missing coverage of 1 object - appending one - May lead to problems")
+		maxIndex := objCount - 1
+		for _, ind := range indexList {
+			if ind > maxIndex {
+				maxIndex = ind
+			}
+		}
+		indexList = append(indexList, maxIndex+1)
 		objCount++
 	}
 
@@ -1038,6 +1048,14 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 			common.Log.Trace("- Free object - can probably ignore")
 		} else if ftype == 1 {
 			common.Log.Trace("- In use - uncompressed via offset %b", p2)
+			// If offset (n2) is same as the XRefs table offset, then update the Object number with the
+			// one that was parsed.  Fixes problem where the object number is incorrectly or not specified
+			// in the Index.
+			if n2 == xsOffset {
+				common.Log.Debug("Updating object number for XRef table %d -> %d", objNum, xs.ObjectNumber)
+				objNum = int(xs.ObjectNumber)
+			}
+
 			// Object type 1: Objects that are in use but are not
 			// compressed, i.e. defined by an offset (normal entry)
 			if xr, ok := parser.xrefs[objNum]; !ok || int(n3) > xr.Generation {
@@ -1543,6 +1561,8 @@ func NewParserFromString(txt string) *PdfParser {
 
 	parser.fileSize = int64(len(txt))
 	parser.streamLengthReferenceLookupInProgress = map[int64]bool{}
+
+	parser.xrefs = XrefTable{}
 
 	return &parser
 }
