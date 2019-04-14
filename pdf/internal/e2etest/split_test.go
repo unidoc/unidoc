@@ -107,7 +107,7 @@ func splitSinglePdf(t *testing.T, params splitParams) {
 	require.NoError(t, err)
 	defer file.Close()
 
-	reader, err := model.NewPdfReader(file)
+	reader, err := model.NewPdfReaderLazy(file)
 	require.NoError(t, err)
 
 	isEncrypted, err := reader.IsEncrypted()
