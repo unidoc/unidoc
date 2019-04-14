@@ -52,12 +52,15 @@ type PdfPage struct {
 	PresSteps            core.PdfObject
 	UserUnit             core.PdfObject
 	VP                   core.PdfObject
+	Annots               core.PdfObject
 
-	Annotations []*PdfAnnotation
+	annotations []*PdfAnnotation
 
 	// Primitive container.
 	pageDict  *core.PdfObjectDictionary
 	primitive *core.PdfIndirectObject
+
+	reader *PdfReader
 }
 
 // NewPdfPage returns a new PDF page.
@@ -267,23 +270,57 @@ func (r *PdfReader) newPdfPageFromDict(p *core.PdfObjectDictionary) (*PdfPage, e
 	if obj := d.Get("VP"); obj != nil {
 		page.VP = obj
 	}
-
-	var err error
-	page.Annotations, err = r.LoadAnnotations(&d)
-	if err != nil {
-		return nil, err
+	if obj := d.Get("Annots"); obj != nil {
+		page.Annots = obj
 	}
+
+	page.reader = r
 
 	return page, nil
 }
 
-// LoadAnnotations loads and returns the PDF annotations from the input dictionary.
-func (r *PdfReader) LoadAnnotations(d *core.PdfObjectDictionary) ([]*PdfAnnotation, error) {
-	annotsObj := d.Get("Annots")
-	if annotsObj == nil {
+// GetAnnotations returns the list of page annotations for `page`. If not loaded attempts to load the
+// annotations, otherwise returns the loaded list.
+func (page *PdfPage) GetAnnotations() ([]*PdfAnnotation, error) {
+	if page.annotations != nil {
+		return page.annotations, nil
+	}
+	if page.Annots == nil {
+		page.annotations = []*PdfAnnotation{}
+		return nil, nil
+	}
+	if page.reader == nil {
+		page.annotations = []*PdfAnnotation{}
 		return nil, nil
 	}
 
+	annots, err := page.reader.loadAnnotations(page.Annots)
+	if err != nil {
+		return nil, err
+	}
+	if annots == nil {
+		page.annotations = []*PdfAnnotation{}
+	}
+
+	page.annotations = annots
+	return page.annotations, nil
+}
+
+// AddAnnotation appends `annot` to the list of page annotations.
+func (page *PdfPage) AddAnnotation(annot *PdfAnnotation) {
+	if page.annotations == nil {
+		page.GetAnnotations() // Ensure has been loaded.
+	}
+	page.annotations = append(page.annotations, annot)
+}
+
+// SetAnnotations sets the annotations list.
+func (page *PdfPage) SetAnnotations(annotations []*PdfAnnotation) {
+	page.annotations = annotations
+}
+
+// loadAnnotations loads and returns the PDF annotations from the input annotations object (array).
+func (r *PdfReader) loadAnnotations(annotsObj core.PdfObject) ([]*PdfAnnotation, error) {
 	annotsArr, ok := core.GetArray(annotsObj)
 	if !ok {
 		return nil, fmt.Errorf("Annots not an array")
@@ -447,9 +484,9 @@ func (p *PdfPage) GetPageDict() *core.PdfObjectDictionary {
 	d.SetIfNotNil("UserUnit", p.UserUnit)
 	d.SetIfNotNil("VP", p.VP)
 
-	if p.Annotations != nil {
+	if p.annotations != nil {
 		arr := core.MakeArray()
-		for _, annot := range p.Annotations {
+		for _, annot := range p.annotations {
 			if subannot := annot.GetContext(); subannot != nil {
 				arr.Append(subannot.ToPdfObject())
 			} else {

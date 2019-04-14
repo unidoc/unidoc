@@ -305,8 +305,8 @@ func (a *PdfAppender) MergePageWith(pageNum int, page *PdfPage) error {
 		return err
 	}
 
-	for _, a := range page.Annotations {
-		srcPage.Annotations = append(srcPage.Annotations, a)
+	for _, a := range page.annotations {
+		srcPage.annotations = append(srcPage.annotations, a)
 	}
 
 	if srcPage.Resources == nil {
@@ -425,7 +425,7 @@ func (a *PdfAppender) Sign(pageNum int, field *PdfFieldSignature) error {
 		field.T = core.MakeString(fmt.Sprintf("Signature %d", pageNum))
 	}
 
-	page.Annotations = append(page.Annotations, field.PdfAnnotationWidget.PdfAnnotation)
+	page.AddAnnotation(field.PdfAnnotationWidget.PdfAnnotation)
 
 	// Add signature field to the form.
 	acroForm := a.acroForm
