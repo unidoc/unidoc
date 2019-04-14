@@ -394,7 +394,6 @@ func (name *PdfObjectName) WriteString() string {
 }
 
 // Elements returns a slice of the PdfObject elements in the array.
-// Preferred over accessing the array directly as type may be changed in future major versions (v3).
 func (array *PdfObjectArray) Elements() []PdfObject {
 	if array == nil {
 		return nil

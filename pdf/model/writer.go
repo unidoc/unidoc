@@ -972,7 +972,6 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		w.writeString("trailer\n")
 		w.writeString(trailer.WriteString())
 		w.writeString("\n")
-
 	}
 
 	// Make offset reference.

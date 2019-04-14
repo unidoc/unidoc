@@ -10,9 +10,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/unidoc/unidoc/pdf/core"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/unidoc/unidoc/pdf/core"
 )
 
 func TestReaderLazy(t *testing.T) {
