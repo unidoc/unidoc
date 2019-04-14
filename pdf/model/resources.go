@@ -71,9 +71,9 @@ func NewPdfPageResourcesFromDict(dict *core.PdfObjectDictionary) (*PdfPageResour
 	return r, nil
 }
 
-// GetColorSpace loads PdfPageResourcesColorspaces from `r.ColorSpace` and returns an error if there
+// GetColorspaces loads PdfPageResourcesColorspaces from `r.ColorSpace` and returns an error if there
 // is a problem loading. Once loaded, the same object is returned on multiple calls.
-func (r *PdfPageResources) GetColorSpace() (*PdfPageResourcesColorspaces, error) {
+func (r *PdfPageResources) GetColorspaces() (*PdfPageResourcesColorspaces, error) {
 	if r.colorspace != nil {
 		return r.colorspace, nil
 	}
@@ -283,7 +283,7 @@ func (r *PdfPageResources) SetFontByName(keyName core.PdfObjectName, obj core.Pd
 
 // GetColorspaceByName returns the colorspace with the specified name from the page resources.
 func (r *PdfPageResources) GetColorspaceByName(keyName core.PdfObjectName) (PdfColorspace, bool) {
-	colorspace, err := r.GetColorSpace()
+	colorspace, err := r.GetColorspaces()
 	if err != nil {
 		common.Log.Debug("ERROR getting colorsprace: %v", err)
 		return nil, false
@@ -303,7 +303,7 @@ func (r *PdfPageResources) GetColorspaceByName(keyName core.PdfObjectName) (PdfC
 
 // HasColorspaceByName checks if the colorspace with the specified name exists in the page resources.
 func (r *PdfPageResources) HasColorspaceByName(keyName core.PdfObjectName) bool {
-	colorspace, err := r.GetColorSpace()
+	colorspace, err := r.GetColorspaces()
 	if err != nil {
 		common.Log.Debug("ERROR getting colorsprace: %v", err)
 		return false
@@ -318,7 +318,7 @@ func (r *PdfPageResources) HasColorspaceByName(keyName core.PdfObjectName) bool 
 
 // SetColorspaceByName adds the provided colorspace to the page resources.
 func (r *PdfPageResources) SetColorspaceByName(keyName core.PdfObjectName, cs PdfColorspace) error {
-	colorspace, err := r.GetColorSpace()
+	colorspace, err := r.GetColorspaces()
 	if err != nil {
 		common.Log.Debug("ERROR getting colorsprace: %v", err)
 		return err
