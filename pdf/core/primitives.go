@@ -617,13 +617,16 @@ func (d *PdfObjectDictionary) Merge(another *PdfObjectDictionary) {
 
 // String returns a string describing `d`.
 func (d *PdfObjectDictionary) String() string {
-	outStr := "Dict("
+	var b strings.Builder
+	b.WriteString("Dict(")
 	for _, k := range d.keys {
 		v := d.dict[k]
-		outStr += fmt.Sprintf("\"%s\": %s, ", k, v.String())
+		b.WriteString(`"` + k.String() + `": `)
+		b.WriteString(v.String())
+		b.WriteString(`, `)
 	}
-	outStr += ")"
-	return outStr
+	b.WriteString(")")
+	return b.String()
 }
 
 // WriteString outputs the object as it is to be written to file.
@@ -633,8 +636,6 @@ func (d *PdfObjectDictionary) WriteString() string {
 	b.WriteString("<<")
 	for _, k := range d.keys {
 		v := d.dict[k]
-		common.Log.Trace("Writing k: %s %T %v %v", k, v, k, v)
-
 		b.WriteString(k.WriteString())
 		b.WriteString(" ")
 		b.WriteString(v.WriteString())

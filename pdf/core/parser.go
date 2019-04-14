@@ -680,7 +680,10 @@ func (parser *PdfParser) ParseDict() (*PdfObjectDictionary, error) {
 		}
 		dict.Set(keyName, val)
 
-		common.Log.Trace("dict[%s] = %s", keyName, val.String())
+		if common.Log.IsLogLevel(common.LogLevelTrace) {
+			// Avoid calling unless needed as the String() can be heavy for large objects.
+			common.Log.Trace("dict[%s] = %s", keyName, val.String())
+		}
 	}
 	common.Log.Trace("returning PDF Dict!")
 

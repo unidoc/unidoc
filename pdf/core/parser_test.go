@@ -92,21 +92,33 @@ func TestNameParsing(t *testing.T) {
 }
 
 func TestBigDictParse(t *testing.T) {
-	f, err := os.Open(`./testdata/bigdict`)
-	require.NoError(t, err)
-	defer f.Close()
+	numObjects := 150000
 
-	fInfo, err := f.Stat()
-	require.NoError(t, err)
+	var buf bytes.Buffer
+	buf.WriteString("<<")
+	buf.WriteString("/ColorSpace <<")
+	for i := 0; i < numObjects; i++ {
+		buf.WriteString(fmt.Sprintf(`/Cs%d %d 0 R`, i, i))
+	}
+	buf.WriteString(">>")
+	buf.WriteString("/Font <<>> ")
+	buf.WriteString(">>")
 
-	reader := bufio.NewReader(f)
-	parser := &PdfParser{rs: f, reader: reader, fileSize: fInfo.Size()}
+	rs := bytes.NewReader(buf.Bytes())
+	reader := bufio.NewReader(&buf)
+	parser := &PdfParser{rs: rs, reader: reader, fileSize: int64(buf.Len())}
 
 	val, err := parser.parseObject()
 	require.NoError(t, err)
 	require.NotNil(t, val)
 
-	fmt.Printf("Val: %T\n", val)
+	d, ok := GetDict(val)
+	require.True(t, ok)
+	require.Equal(t, 2, len(d.Keys()))
+
+	d, ok = GetDict(d.Get("ColorSpace"))
+	require.True(t, ok)
+	require.Equal(t, numObjects, len(d.Keys()))
 }
 
 func BenchmarkStringParsing(b *testing.B) {
@@ -218,7 +230,7 @@ func TestBoolParsing(t *testing.T) {
 	}
 }
 
-func BenchmarkNumbericParsing(b *testing.B) {
+func BenchmarkNumericParsing(b *testing.B) {
 	txt1 := "[34.5 -3.62 1 +123.6 4. -.002 0.0]"
 	parser := PdfParser{}
 	parser.rs, parser.reader, parser.fileSize = makeReaderForText(txt1)
