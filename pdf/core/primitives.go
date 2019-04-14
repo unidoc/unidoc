@@ -256,7 +256,7 @@ func (ref *PdfObjectReference) Resolve() PdfObject {
 		return MakeNull()
 	}
 	if obj == nil {
-		common.Log.Debug("ERROR resolving reference: nil object - returning a null object", err)
+		common.Log.Debug("ERROR resolving reference: nil object - returning a null object")
 		return MakeNull()
 	}
 	return obj
