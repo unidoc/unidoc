@@ -7,6 +7,8 @@ package creator
 
 import (
 	"errors"
+	"math"
+	"sort"
 
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/pdf/contentstream/draw"
@@ -45,31 +47,26 @@ type Table struct {
 
 	// Margins to be applied around the block when drawing on Page.
 	margins margins
+
+	// Specifies whether the table has a header.
+	hasHeader bool
+
+	// Header rows.
+	headerStartRow int
+	headerEndRow   int
 }
 
 // newTable create a new Table with a specified number of columns.
 func newTable(cols int) *Table {
-	t := &Table{}
-	t.rows = 0
-	t.cols = cols
-
-	t.curCell = 0
-
-	// Initialize column widths as all equal.
-	t.colWidths = []float64{}
-	colWidth := float64(1.0) / float64(cols)
-	for i := 0; i < cols; i++ {
-		t.colWidths = append(t.colWidths, colWidth)
+	t := &Table{
+		cols:             cols,
+		defaultRowHeight: 10.0,
+		colWidths:        []float64{},
+		rowHeights:       []float64{},
+		cells:            []*TableCell{},
 	}
 
-	t.rowHeights = []float64{}
-
-	// Default row height
-	// TODO: Base on contents instead?
-	t.defaultRowHeight = 10.0
-
-	t.cells = []*TableCell{}
-
+	t.resetColumnWidths()
 	return t
 }
 
@@ -83,8 +80,17 @@ func (table *Table) SetColumnWidths(widths ...float64) error {
 	}
 
 	table.colWidths = widths
-
 	return nil
+}
+
+func (table *Table) resetColumnWidths() {
+	table.colWidths = []float64{}
+	colWidth := float64(1.0) / float64(table.cols)
+
+	// Initialize column widths as all equal.
+	for i := 0; i < table.cols; i++ {
+		table.colWidths = append(table.colWidths, colWidth)
+	}
 }
 
 // Height returns the total height of all rows.
@@ -116,6 +122,15 @@ func (table *Table) GetMargins() (float64, float64, float64, float64) {
 	return table.margins.left, table.margins.right, table.margins.top, table.margins.bottom
 }
 
+// GetRowHeight returns the height of the specified row.
+func (table *Table) GetRowHeight(row int) (float64, error) {
+	if row < 1 || row > len(table.rowHeights) {
+		return 0, errors.New("range check error")
+	}
+
+	return table.rowHeights[row-1], nil
+}
+
 // SetRowHeight sets the height for a specified row.
 func (table *Table) SetRowHeight(row int, h float64) error {
 	if row < 1 || row > len(table.rowHeights) {
@@ -124,6 +139,16 @@ func (table *Table) SetRowHeight(row int, h float64) error {
 
 	table.rowHeights[row-1] = h
 	return nil
+}
+
+// Rows returns the total number of rows the table has.
+func (table *Table) Rows() int {
+	return table.rows
+}
+
+// Cols returns the total number of columns the table has.
+func (table *Table) Cols() int {
+	return table.cols
 }
 
 // CurRow returns the currently active cell's row number.
@@ -146,6 +171,80 @@ func (table *Table) SetPos(x, y float64) {
 	table.positioning = positionAbsolute
 	table.xPos = x
 	table.yPos = y
+}
+
+// SetHeaderRows turns the selected table rows into headers that are repeated
+// for every page the table spans. startRow and endRow are inclusive.
+func (table *Table) SetHeaderRows(startRow, endRow int) error {
+	if startRow <= 0 {
+		return errors.New("header start row must be greater than 0")
+	}
+	if endRow <= 0 {
+		return errors.New("header end row must be greater than 0")
+	}
+	if startRow > endRow {
+		return errors.New("header start row  must be less than or equal to the end row")
+	}
+
+	table.hasHeader = true
+	table.headerStartRow = startRow
+	table.headerEndRow = endRow
+	return nil
+}
+
+// AddSubtable copies the cells of the subtable in the table, starting with the
+// specified position. The table row and column indices are 1-based, which
+// makes the position of the first cell of the first row of the table 1,1.
+// The table is automatically extended if the subtable exceeds its columns.
+// This can happen when the subtable has more columns than the table or when
+// one or more columns of the subtable starting from the specified position
+// exceed the last column of the table.
+func (table *Table) AddSubtable(row, col int, subtable *Table) {
+	for _, cell := range subtable.cells {
+		c := &TableCell{}
+		*c = *cell
+		c.table = table
+
+		// Adjust added cell column. Add extra columns to the table to
+		// accomodate the new cell, if needed.
+		c.col += col - 1
+		if colsLeft := table.cols - (c.col - 1); colsLeft < c.colspan {
+			table.cols += c.colspan - colsLeft
+			table.resetColumnWidths()
+			common.Log.Debug("Table: subtable exceeds destination table. Expanding table to %d columns.", table.cols)
+		}
+
+		// Extend number of rows, if needed.
+		c.row += row - 1
+
+		subRowHeight := subtable.rowHeights[cell.row-1]
+		if c.row > table.rows {
+			for c.row > table.rows {
+				table.rows++
+				table.rowHeights = append(table.rowHeights, table.defaultRowHeight)
+			}
+
+			table.rowHeights[c.row-1] = subRowHeight
+		} else {
+			table.rowHeights[c.row-1] = math.Max(table.rowHeights[c.row-1], subRowHeight)
+		}
+
+		table.cells = append(table.cells, c)
+	}
+
+	// Sort cells by row, column.
+	sort.Slice(table.cells, func(i, j int) bool {
+		rowA := table.cells[i].row
+		rowB := table.cells[j].row
+		if rowA < rowB {
+			return true
+		}
+		if rowA > rowB {
+			return false
+		}
+
+		return table.cells[i].col < table.cells[j].col
+	})
 }
 
 // GeneratePageBlocks generate the page blocks.  Multiple blocks are generated if the contents wrap
@@ -178,8 +277,12 @@ func (table *Table) GeneratePageBlocks(ctx DrawContext) ([]*Block, DrawContext, 
 	// Start row keeps track of starting row (wraps to 0 on new page).
 	startrow := 0
 
+	// Indices of the first and the last header cells.
+	startHeaderCell := -1
+	endHeaderCell := -1
+
 	// Prepare for drawing: Calculate cell dimensions, row, cell heights.
-	for _, cell := range table.cells {
+	for cellIdx, cell := range table.cells {
 		// Get total width fraction
 		wf := float64(0.0)
 		for i := 0; i < cell.colspan; i++ {
@@ -203,6 +306,16 @@ func (table *Table) GeneratePageBlocks(ctx DrawContext) ([]*Block, DrawContext, 
 		h := float64(0.0)
 		for i := 0; i < cell.rowspan; i++ {
 			h += table.rowHeights[cell.row+i-1]
+		}
+
+		// Calculate header cell range.
+		if table.hasHeader {
+			if cell.row >= table.headerStartRow && cell.row <= table.headerEndRow {
+				if startHeaderCell < 0 {
+					startHeaderCell = cellIdx
+				}
+				endHeaderCell = cellIdx
+			}
 		}
 
 		// For text: Calculate width, height, wrapping within available space if specified.
@@ -292,22 +405,28 @@ func (table *Table) GeneratePageBlocks(ctx DrawContext) ([]*Block, DrawContext, 
 				table.rowHeights[cell.row+cell.rowspan-2] += diffh
 			}
 		}
-
 	}
 
 	// Draw cells.
 	// row height, cell height
-	for _, cell := range table.cells {
+	var drawingHeaders bool
+	var resumeIdx, resumeStartRow int
+
+	for cellIdx := 0; cellIdx < len(table.cells); cellIdx++ {
+		cell := table.cells[cellIdx]
+
 		// Get total width fraction
 		wf := float64(0.0)
 		for i := 0; i < cell.colspan; i++ {
 			wf += table.colWidths[cell.col+i-1]
 		}
+
 		// Get x pos relative to table upper left corner.
 		xrel := float64(0.0)
 		for i := 0; i < cell.col-1; i++ {
 			xrel += table.colWidths[i] * tableWidth
 		}
+
 		// Get y pos relative to table upper left corner.
 		yrel := float64(0.0)
 		for i := startrow; i < cell.row-1; i++ {
@@ -324,7 +443,6 @@ func (table *Table) GeneratePageBlocks(ctx DrawContext) ([]*Block, DrawContext, 
 		}
 
 		ctx.Height = origHeight - yrel
-
 		if h > ctx.Height {
 			// Go to next page.
 			blocks = append(blocks, block)
@@ -337,6 +455,18 @@ func (table *Table) GeneratePageBlocks(ctx DrawContext) ([]*Block, DrawContext, 
 
 			startrow = cell.row - 1
 			yrel = 0
+
+			// Save state and jump back to the first header cell.
+			if table.hasHeader && startHeaderCell >= 0 {
+				resumeIdx = cellIdx
+				cellIdx = startHeaderCell - 1
+
+				resumeStartRow = startrow
+				startrow = table.headerStartRow - 1
+
+				drawingHeaders = true
+				continue
+			}
 		}
 
 		// Height should be how much space there is left of the page.
@@ -448,6 +578,18 @@ func (table *Table) GeneratePageBlocks(ctx DrawContext) ([]*Block, DrawContext, 
 		}
 
 		ctx.Y += h
+
+		// Resume previous state after headers have been rendered.
+		if drawingHeaders && cellIdx+1 > endHeaderCell {
+			// Account for the height of the rendered headers.
+			ulY += yrel + h
+			origHeight -= h + yrel
+
+			startrow = resumeStartRow
+			cellIdx = resumeIdx - 1
+
+			drawingHeaders = false
+		}
 	}
 	blocks = append(blocks, block)
 
@@ -570,8 +712,18 @@ type TableCell struct {
 	table *Table
 }
 
-// NewCell makes a new cell and inserts into the table at current position in the table.
+// NewCell makes a new cell and inserts it into the table at the current position.
 func (table *Table) NewCell() *TableCell {
+	return table.newCell(1)
+}
+
+// MultiColCell makes a new cell with the specified column span and inserts it
+// into the table at the current position.
+func (table *Table) MultiColCell(colspan int) *TableCell {
+	return table.newCell(colspan)
+}
+
+func (table *Table) newCell(colspan int) *TableCell {
 	table.curCell++
 
 	curRow := (table.curCell-1)/table.cols + 1
@@ -584,6 +736,7 @@ func (table *Table) NewCell() *TableCell {
 	cell := &TableCell{}
 	cell.row = curRow
 	cell.col = curCol
+	cell.rowspan = 1
 
 	// Default left indent
 	cell.indent = 5
@@ -606,8 +759,19 @@ func (table *Table) NewCell() *TableCell {
 	cell.borderColorRight = model.NewPdfColorDeviceRGB(col.ToRGB())
 	cell.borderColorTop = model.NewPdfColorDeviceRGB(col.ToRGB())
 
-	cell.rowspan = 1
-	cell.colspan = 1
+	// Set column span.
+	if colspan < 1 {
+		common.Log.Debug("Table: cell colspan less than 1 (%d). Setting cell colspan to 1.", colspan)
+		colspan = 1
+	}
+
+	remainingCols := table.cols - (cell.col - 1)
+	if colspan > remainingCols {
+		common.Log.Debug("Table: cell colspan (%d) exceeds remaining row cols (%d). Adjusting colspan.", colspan, remainingCols)
+		colspan = remainingCols
+	}
+	cell.colspan = colspan
+	table.curCell += colspan - 1
 
 	table.cells = append(table.cells, cell)
 

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/unidoc/unidoc/common"
 	"github.com/unidoc/unidoc/common/license"
@@ -23,6 +24,15 @@ import (
 	"github.com/unidoc/unidoc/pdf/core/security"
 	"github.com/unidoc/unidoc/pdf/core/security/crypt"
 )
+
+var pdfAuthor = ""
+var pdfCreationDate time.Time
+var pdfCreator = ""
+var pdfKeywords = ""
+var pdfModifiedDate time.Time
+var pdfProducer = ""
+var pdfSubject = ""
+var pdfTitle = ""
 
 type crossReference struct {
 	Type int
@@ -34,11 +44,22 @@ type crossReference struct {
 	Index        int
 }
 
-var pdfCreator = ""
+func getPdfAuthor() string {
+	return pdfAuthor
+}
 
-func getPdfProducer() string {
-	licenseKey := license.GetLicenseKey()
-	return fmt.Sprintf("UniDoc v%s (%s) - http://unidoc.io", getUniDocVersion(), licenseKey.TypeToString())
+// SetPdfAuthor sets the Author attribute of the output PDF.
+func SetPdfAuthor(author string) {
+	pdfAuthor = author
+}
+
+func getPdfCreationDate() time.Time {
+	return pdfCreationDate
+}
+
+// SetPdfCreationDate sets the CreationDate attribute of the output PDF.
+func SetPdfCreationDate(creationDate time.Time) {
+	pdfCreationDate = creationDate
 }
 
 func getPdfCreator() string {
@@ -53,6 +74,57 @@ func getPdfCreator() string {
 // SetPdfCreator sets the Creator attribute of the output PDF.
 func SetPdfCreator(creator string) {
 	pdfCreator = creator
+}
+
+func getPdfKeywords() string {
+	return pdfKeywords
+}
+
+// SetPdfKeywords sets the Keywords attribute of the output PDF.
+func SetPdfKeywords(keywords string) {
+	pdfKeywords = keywords
+}
+
+func getPdfModifiedDate() time.Time {
+	return pdfModifiedDate
+}
+
+// SetPdfModifiedDate sets the ModDate attribute of the output PDF.
+func SetPdfModifiedDate(modifiedDate time.Time) {
+	pdfCreationDate = modifiedDate
+}
+
+func getPdfProducer() string {
+	licenseKey := license.GetLicenseKey()
+	if len(pdfProducer) > 0 && licenseKey.IsLicensed() {
+		return pdfProducer
+	}
+
+	// Return default.
+	return fmt.Sprintf("UniDoc v%s (%s) - http://unidoc.io", getUniDocVersion(), licenseKey.TypeToString())
+}
+
+// SetPdfProducer sets the Producer attribute of the output PDF.
+func SetPdfProducer(producer string) {
+	pdfProducer = producer
+}
+
+func getPdfSubject() string {
+	return pdfSubject
+}
+
+// SetPdfSubject sets the Subject attribute of the output PDF.
+func SetPdfSubject(subject string) {
+	pdfSubject = subject
+}
+
+func getPdfTitle() string {
+	return pdfTitle
+}
+
+// SetPdfTitle sets the Title attribute of the output PDF.
+func SetPdfTitle(title string) {
+	pdfTitle = title
 }
 
 // PdfWriter handles outputing PDF content.
@@ -95,6 +167,9 @@ type PdfWriter struct {
 	ObjNumOffset      int
 	appendMode        bool
 	appendToXrefs     core.XrefTable
+
+	// Cache of objects traversed while resolving references.
+	traversed map[core.PdfObject]struct{}
 }
 
 // NewPdfWriter initializes a new PdfWriter.
@@ -104,6 +179,7 @@ func NewPdfWriter() PdfWriter {
 	w.objectsMap = map[core.PdfObject]bool{}
 	w.objects = []core.PdfObject{}
 	w.pendingObjects = map[core.PdfObject]*core.PdfObjectDictionary{}
+	w.traversed = map[core.PdfObject]struct{}{}
 
 	// PDF Version. Can be changed if using more advanced features in PDF.
 	// By default it is set to 1.3.
@@ -112,8 +188,42 @@ func NewPdfWriter() PdfWriter {
 
 	// Creation info.
 	infoDict := core.MakeDict()
-	infoDict.Set("Producer", core.MakeString(getPdfProducer()))
-	infoDict.Set("Creator", core.MakeString(getPdfCreator()))
+	metadata := []struct {
+		key   core.PdfObjectName
+		value string
+	}{
+		{
+			"Producer", getPdfProducer(),
+		}, {
+			"Creator", getPdfCreator(),
+		}, {
+			"Author", getPdfAuthor(),
+		}, {
+			"Subject", getPdfSubject(),
+		}, {
+			"Title", getPdfTitle(),
+		}, {
+			"Keywords", getPdfKeywords(),
+		},
+	}
+	for _, tuple := range metadata {
+		if tuple.value != "" {
+			infoDict.Set(tuple.key, core.MakeString(tuple.value))
+		}
+	}
+
+	// Set creation and modified dates.
+	if creationDate := getPdfCreationDate(); !creationDate.IsZero() {
+		if cd, err := NewPdfDateFromTime(creationDate); err == nil {
+			infoDict.Set("CreationDate", cd.ToPdfObject())
+		}
+	}
+	if modifiedDate := getPdfModifiedDate(); !modifiedDate.IsZero() {
+		if md, err := NewPdfDateFromTime(modifiedDate); err == nil {
+			infoDict.Set("ModDate", md.ToPdfObject())
+		}
+	}
+
 	infoObj := core.PdfIndirectObject{}
 	infoObj.PdfObject = infoDict
 	w.infoObj = &infoObj
@@ -298,7 +408,7 @@ func (w *PdfWriter) GetOptimizer() Optimizer {
 func (w *PdfWriter) hasObject(obj core.PdfObject) bool {
 	// Check if already added.
 	for _, o := range w.objects {
-		// GH: May perform better to use a hash map to check if added?
+		// TODO(gunnsth): Replace with a map to check if added - should improve performance.
 		if o == obj {
 			return true
 		}
@@ -311,6 +421,11 @@ func (w *PdfWriter) hasObject(obj core.PdfObject) bool {
 func (w *PdfWriter) addObject(obj core.PdfObject) bool {
 	hasObj := w.hasObject(obj)
 	if !hasObj {
+		err := core.ResolveReferencesDeep(obj, w.traversed)
+		if err != nil {
+			common.Log.Debug("ERROR: %v - skipping", err)
+		}
+
 		w.objects = append(w.objects, obj)
 		return true
 	}
@@ -399,7 +514,7 @@ func (w *PdfWriter) addObjects(obj core.PdfObject) error {
 
 	if _, isReference := obj.(*core.PdfObjectReference); isReference {
 		// Should never be a reference, should already be resolved.
-		common.Log.Debug("ERROR: Cannot be a reference!")
+		common.Log.Debug("ERROR: Cannot be a reference - got %#v!", obj)
 		return errors.New("reference not allowed")
 	}
 
@@ -409,6 +524,7 @@ func (w *PdfWriter) addObjects(obj core.PdfObject) error {
 // AddPage adds a page to the PDF file. The new page should be an indirect object.
 func (w *PdfWriter) AddPage(page *PdfPage) error {
 	obj := page.ToPdfObject()
+
 	common.Log.Trace("==========")
 	common.Log.Trace("Appending to page list %T", obj)
 	procPage(page)
@@ -534,6 +650,7 @@ func (w *PdfWriter) AddOutlineTree(outlineTree *PdfOutlineTreeNode) {
 func (w *PdfWriter) seekByName(obj core.PdfObject, followKeys []string, key string) ([]core.PdfObject, error) {
 	common.Log.Trace("Seek by name.. %T", obj)
 	var list []core.PdfObject
+
 	if io, isIndirectObj := obj.(*core.PdfIndirectObject); isIndirectObj {
 		return w.seekByName(io.PdfObject, followKeys, key)
 	}
@@ -798,6 +915,8 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 	w.catalog.Set("Version", core.MakeName(fmt.Sprintf("%d.%d", w.majorVersion, w.minorVersion)))
 
 	// Make a copy of objects prior to optimizing as this can alter the objects.
+	// TODO: Copying wastes memory. Might be worth making user responsible for handling properly.
+	//       Is copy needed for optimization?
 	w.copyObjects()
 
 	if w.optimizer != nil {
@@ -888,7 +1007,6 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		}
 	}
 	if useCrossReferenceStream {
-
 		crossObjNumber := maxIndex + 1
 		w.crossReferenceMap[crossObjNumber] = crossReference{Type: 1, ObjectNumber: crossObjNumber, Offset: xrefOffset}
 		crossReferenceData := bytes.NewBuffer(nil)
@@ -960,7 +1078,6 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		w.writeString("trailer\n")
 		w.writeString(trailer.WriteString())
 		w.writeString("\n")
-
 	}
 
 	// Make offset reference.

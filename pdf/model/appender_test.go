@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/pkcs12"
 
 	"github.com/unidoc/unidoc/common"
@@ -46,9 +47,8 @@ const testPdfAcroFormFile1 = "./testdata/OoPdfFormExample.pdf"
 
 const testPdfSignedPDFDocument = "./testdata/SampleSignedPDFDocument.pdf"
 
-const testPKS12Key = "./testdata/ks12"
+const testPKS12Key = "./testdata/certificate.p12"
 const testPKS12KeyPassword = "password"
-const testSampleSignatureFile = "./testdata/sample_signature"
 
 func tempFile(name string) string {
 	return filepath.Join(os.TempDir(), name)
@@ -233,7 +233,7 @@ func TestAppenderAddAnnotation(t *testing.T) {
 	annotation.IC = core.MakeArrayFromFloats([]float64{4.0, 0.0, 0.3})
 	annotation.CA = core.MakeFloat(0.5)
 
-	page.Annotations = append(page.Annotations, annotation.PdfAnnotation)
+	page.AddAnnotation(annotation.PdfAnnotation)
 
 	appender.ReplacePage(1, page)
 
@@ -382,6 +382,7 @@ func TestAppenderMergePage3(t *testing.T) {
 }
 
 func validateFile(t *testing.T, fileName string) {
+	t.Logf("Validating %s", fileName)
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		t.Errorf("Fail: %v\n", err)
@@ -537,9 +538,11 @@ func TestAppenderSignMultiple(t *testing.T) {
 			t.Fatalf("fields != %d (got %d)", i, len(pdfReader.AcroForm.AllFields()))
 		}
 
-		t.Logf("Annotations: %d", len(pdfReader.PageList[0].Annotations))
-		if len(pdfReader.PageList[0].Annotations) != i {
-			t.Fatalf("page annotations != %d (got %d)", i, len(pdfReader.PageList[0].Annotations))
+		annotations, err := pdfReader.PageList[0].GetAnnotations()
+		require.NoError(t, err)
+		t.Logf("Annotations: %d", len(annotations))
+		if len(annotations) != i {
+			t.Fatalf("page annotations != %d (got %d)", i, len(annotations))
 		}
 
 		appender, err := model.NewPdfAppender(pdfReader)
@@ -743,69 +746,101 @@ func TestSignatureAppearance(t *testing.T) {
 func TestAppenderExternalSignature(t *testing.T) {
 	validateFile(t, testPdfSignedPDFDocument)
 
-	f1, err := os.Open(testPdfFile1)
-	if err != nil {
-		t.Errorf("Fail: %v\n", err)
-		return
-	}
-	defer f1.Close()
+	// Function to generate signed PDF using the specified signature handler.
+	generateSignedFile := func(handler model.SignatureHandler) ([]byte, *model.PdfSignature, error) {
+		file, err := os.Open(testPdfFile1)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer file.Close()
 
-	reader, err := model.NewPdfReader(f1)
-	if err != nil {
-		t.Errorf("Fail: %v\n", err)
-		return
+		reader, err := model.NewPdfReader(file)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		appender, err := model.NewPdfAppender(reader)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Create signature.
+		signature := model.NewPdfSignature(handler)
+		signature.SetName("Test External Signature")
+		signature.SetReason("TestAppenderExternalSignature")
+		signature.SetDate(time.Date(2019, 3, 24, 7, 30, 24, 0, time.UTC), "")
+
+		if err := signature.Initialize(); err != nil {
+			return nil, nil, err
+		}
+
+		// Create signature field and appearance.
+		opts := annotator.NewSignatureFieldOpts()
+		opts.FontSize = 10
+		opts.Rect = []float64{10, 25, 75, 60}
+
+		field, err := annotator.NewSignatureField(
+			signature,
+			[]*annotator.SignatureLine{
+				annotator.NewSignatureLine("Name", "John Doe"),
+				annotator.NewSignatureLine("Date", "2019.15.03"),
+				annotator.NewSignatureLine("Reason", "External signature test"),
+			},
+			opts,
+		)
+		field.T = core.MakeString("External signature")
+
+		if err = appender.Sign(1, field); err != nil {
+			return nil, nil, err
+		}
+
+		// Write PDF file to buffer.
+		pdfBuf := bytes.NewBuffer(nil)
+		if err = appender.Write(pdfBuf); err != nil {
+			return nil, nil, err
+		}
+
+		return pdfBuf.Bytes(), signature, nil
 	}
 
-	appender, err := model.NewPdfAppender(reader)
-	if err != nil {
-		t.Errorf("Fail: %v\n", err)
-		return
+	// Function which signs PDF and returns the signature data.
+	getExternalSignature := func() ([]byte, error) {
+		certFile, err := ioutil.ReadFile(testPKS12Key)
+		if err != nil {
+			return nil, err
+		}
+
+		privateKey, cert, err := pkcs12.Decode(certFile, testPKS12KeyPassword)
+		if err != nil {
+			return nil, err
+		}
+
+		handler, err := sighandler.NewAdobePKCS7Detached(privateKey.(*rsa.PrivateKey), cert)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get external signature data.
+		_, signature, err := generateSignedFile(handler)
+		if err != nil {
+			return nil, err
+		}
+
+		return signature.Contents.Bytes(), nil
 	}
 
+	// Generate PDF file signed with empty signature.
 	handler, err := sighandler.NewEmptyAdobePKCS7Detached(8192)
 	if err != nil {
 		t.Errorf("Fail: %v\n", err)
 		return
 	}
 
-	// Create signature.
-	signature := model.NewPdfSignature(handler)
-	signature.SetName("Test External Signature")
-	signature.SetReason("TestAppenderExternalSignature")
-	signature.SetDate(time.Date(2019, 3, 15, 4, 25, 24, 0, time.UTC), "")
-
-	if err := signature.Initialize(); err != nil {
-		return
-	}
-
-	// Create signature field and appearance.
-	opts := annotator.NewSignatureFieldOpts()
-	opts.FontSize = 10
-	opts.Rect = []float64{10, 25, 75, 60}
-
-	sigField, err := annotator.NewSignatureField(
-		signature,
-		[]*annotator.SignatureLine{
-			annotator.NewSignatureLine("Name", "John Doe"),
-			annotator.NewSignatureLine("Date", "2019.15.03"),
-			annotator.NewSignatureLine("Reason", "External signature test"),
-		},
-		opts,
-	)
-	sigField.T = core.MakeString("External signature")
-
-	if err = appender.Sign(1, sigField); err != nil {
+	pdfData, signature, err := generateSignedFile(handler)
+	if err != nil {
 		t.Errorf("Fail: %v\n", err)
 		return
 	}
-
-	// Write PDF file to buffer.
-	pdfBuf := bytes.NewBuffer(nil)
-	if err = appender.Write(pdfBuf); err != nil {
-		t.Errorf("Fail: %v\n", err)
-		return
-	}
-	pdfData := pdfBuf.Bytes()
 
 	// Parse signature byte range.
 	byteRange, err := parseByteRange(signature.ByteRange)
@@ -816,10 +851,8 @@ func TestAppenderExternalSignature(t *testing.T) {
 
 	// This would be the time to send the PDF buffer to a signing device or
 	// signing web service and get back the signature. We will simulate this by
-	// reading the signature from a sample signature file.
-
-	// Read external signature data.
-	signatureData, err := ioutil.ReadFile(testSampleSignatureFile)
+	// signing the PDF using UniDoc and returning the signature data.
+	signatureData, err := getExternalSignature()
 	if err != nil {
 		t.Errorf("Fail: %v\n", err)
 		return

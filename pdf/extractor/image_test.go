@@ -30,21 +30,6 @@ func (tc xformCpts) matrix() transform.Matrix {
 	return transform.NewMatrixFromTransforms(tc.Width, tc.Height, tc.Angle, tc.X, tc.Y)
 }
 
-func loadPageFromPDFFile(filePath string, pageNum int) (*model.PdfPage, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	pdfReader, err := model.NewPdfReader(f)
-	if err != nil {
-		return nil, err
-	}
-
-	return pdfReader.GetPage(pageNum)
-}
-
 func TestImageExtractionBasic(t *testing.T) {
 	type expectedImage struct {
 		X      float64
@@ -91,7 +76,14 @@ func TestImageExtractionBasic(t *testing.T) {
 	}
 
 	for _, tcase := range testcases {
-		page, err := loadPageFromPDFFile(tcase.Path, tcase.PageNum)
+		f, err := os.Open(tcase.Path)
+		require.NoError(t, err)
+		defer f.Close()
+
+		reader, err := model.NewPdfReader(f)
+		require.NoError(t, err)
+
+		page, err := reader.GetPage(tcase.PageNum)
 		require.NoError(t, err)
 
 		pageExtractor, err := New(page)
@@ -173,7 +165,14 @@ func TestImageExtractionNestedCM(t *testing.T) {
 	}
 
 	for _, tcase := range testcases {
-		page, err := loadPageFromPDFFile(tcase.Path, tcase.PageNum)
+		f, err := os.Open(tcase.Path)
+		require.NoError(t, err)
+		defer f.Close()
+
+		reader, err := model.NewPdfReader(f)
+		require.NoError(t, err)
+
+		page, err := reader.GetPage(tcase.PageNum)
 		require.NoError(t, err)
 
 		contentstr, err := page.GetAllContentStreams()
@@ -227,7 +226,14 @@ func TestImageExtractionMulti(t *testing.T) {
 	}
 
 	for _, tcase := range testcases {
-		page, err := loadPageFromPDFFile(tcase.Path, tcase.PageNum)
+		f, err := os.Open(tcase.Path)
+		require.NoError(t, err)
+		defer f.Close()
+
+		reader, err := model.NewPdfReader(f)
+		require.NoError(t, err)
+
+		page, err := reader.GetPage(tcase.PageNum)
 		require.NoError(t, err)
 
 		pageExtractor, err := New(page)
@@ -308,7 +314,15 @@ func TestImageExtractionRealWorld(t *testing.T) {
 
 	for _, tcase := range testcases {
 		inputPath := filepath.Join(corpusFolder, tcase.Path)
-		page, err := loadPageFromPDFFile(inputPath, tcase.PageNum)
+
+		f, err := os.Open(inputPath)
+		require.NoError(t, err)
+		defer f.Close()
+
+		reader, err := model.NewPdfReader(f)
+		require.NoError(t, err)
+
+		page, err := reader.GetPage(tcase.PageNum)
 		require.NoError(t, err)
 
 		pageExtractor, err := New(page)
@@ -334,7 +348,14 @@ func TestImageExtractionRealWorld(t *testing.T) {
 func BenchmarkImageExtraction(b *testing.B) {
 	cnt := 0
 	for i := 0; i < b.N; i++ {
-		page, err := loadPageFromPDFFile("./testdata/basic_xobject.pdf", 1)
+		f, err := os.Open("./testdata/basic_xobject.pdf")
+		require.NoError(b, err)
+		defer f.Close()
+
+		reader, err := model.NewPdfReader(f)
+		require.NoError(b, err)
+
+		page, err := reader.GetPage(1)
 		require.NoError(b, err)
 
 		pageExtractor, err := New(page)

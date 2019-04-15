@@ -9,16 +9,15 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/unidoc/unidoc/common"
 )
-
-func init() {
-	common.SetLogger(common.ConsoleLogger{})
-}
 
 func makeReaderForText(txt string) (*bytes.Reader, *bufio.Reader, int64) {
 	buf := []byte(txt)
@@ -90,6 +89,36 @@ func TestNameParsing(t *testing.T) {
 	if err == nil || err == io.EOF {
 		t.Errorf("Should be invalid name")
 	}
+}
+
+func TestBigDictParse(t *testing.T) {
+	numObjects := 150000
+
+	var buf bytes.Buffer
+	buf.WriteString("<<")
+	buf.WriteString("/ColorSpace <<")
+	for i := 0; i < numObjects; i++ {
+		buf.WriteString(fmt.Sprintf(`/Cs%d %d 0 R`, i, i))
+	}
+	buf.WriteString(">>")
+	buf.WriteString("/Font <<>> ")
+	buf.WriteString(">>")
+
+	rs := bytes.NewReader(buf.Bytes())
+	reader := bufio.NewReader(&buf)
+	parser := &PdfParser{rs: rs, reader: reader, fileSize: int64(buf.Len())}
+
+	val, err := parser.parseObject()
+	require.NoError(t, err)
+	require.NotNil(t, val)
+
+	d, ok := GetDict(val)
+	require.True(t, ok)
+	require.Equal(t, 2, len(d.Keys()))
+
+	d, ok = GetDict(d.Get("ColorSpace"))
+	require.True(t, ok)
+	require.Equal(t, numObjects, len(d.Keys()))
 }
 
 func BenchmarkStringParsing(b *testing.B) {
@@ -201,7 +230,7 @@ func TestBoolParsing(t *testing.T) {
 	}
 }
 
-func BenchmarkNumbericParsing(b *testing.B) {
+func BenchmarkNumericParsing(b *testing.B) {
 	txt1 := "[34.5 -3.62 1 +123.6 4. -.002 0.0]"
 	parser := PdfParser{}
 	parser.rs, parser.reader, parser.fileSize = makeReaderForText(txt1)
@@ -294,38 +323,26 @@ func TestNumericParsing2(t *testing.T) {
 	}
 }
 
-// Includes exponential numbers.
-func TestNumericParsing3(t *testing.T) {
-	// 7.3.3
-	txt1 := "[+4.-.002+3e-2-2e0]" // 4.0, -0.002, 1e-2, -2.0
-	parser := PdfParser{}
-	parser.rs, parser.reader, parser.fileSize = makeReaderForText(txt1)
-	list, err := parser.parseArray()
-	if err != nil {
-		t.Errorf("Error parsing array (%s)", err)
-		return
-	}
-	if list.Len() != 4 {
-		t.Errorf("Len list != 2 (%d)", list.Len())
-		return
+func TestNumericParsingExponentials(t *testing.T) {
+	testcases := []struct {
+		RawObj   string
+		Expected []float64
+	}{
+		{"[+4.-.002+3e-2-2e0]", []float64{4.0, -0.002, 0.03, -2.0}}, // 7.3.3.
+		{"[-1E+35 1E+35]", []float64{-1e35, 1e35}},
 	}
 
-	expectedFloats := map[int]float32{
-		0: 4.0,
-		1: -0.002,
-		2: 0.03,
-		3: -2.0,
-	}
+	for _, tcase := range testcases {
+		t.Run(tcase.RawObj, func(t *testing.T) {
+			parser := PdfParser{}
+			parser.rs, parser.reader, parser.fileSize = makeReaderForText(tcase.RawObj)
+			list, err := parser.parseArray()
+			require.NoError(t, err)
 
-	for idx, val := range expectedFloats {
-		num, ok := list.Get(idx).(*PdfObjectFloat)
-		if !ok {
-			t.Errorf("Idx %d not float (%f)", idx, val)
-			return
-		}
-		if float32(*num) != val {
-			t.Errorf("Idx %d, value incorrect (%f)", idx, val)
-		}
+			floats, err := list.ToFloat64Array()
+			require.NoError(t, err)
+			require.Equal(t, tcase.Expected, floats)
+		})
 	}
 }
 

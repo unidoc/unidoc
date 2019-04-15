@@ -181,21 +181,21 @@ func newFlateEncoderFromStream(streamObj *PdfObjectStream, decodeParams *PdfObje
 	// If decodeParams not provided, see if we can get from the stream.
 	if decodeParams == nil {
 		obj := TraceToDirectObject(encDict.Get("DecodeParms"))
-		if obj != nil {
-			if arr, isArr := obj.(*PdfObjectArray); isArr {
-				if arr.Len() != 1 {
-					common.Log.Debug("Error: DecodeParms array length != 1 (%d)", arr.Len())
-					return nil, errors.New("range check error")
-				}
-				obj = TraceToDirectObject(arr.Get(0))
+		switch t := obj.(type) {
+		case *PdfObjectArray:
+			arr := t
+			if arr.Len() != 1 {
+				common.Log.Debug("Error: DecodeParms array length != 1 (%d)", arr.Len())
+				return nil, errors.New("range check error")
 			}
-
-			dp, isDict := obj.(*PdfObjectDictionary)
-			if !isDict {
-				common.Log.Debug("Error: DecodeParms not a dictionary (%T)", obj)
-				return nil, fmt.Errorf("invalid DecodeParms")
-			}
-			decodeParams = dp
+			obj = TraceToDirectObject(arr.Get(0))
+		case *PdfObjectDictionary:
+			decodeParams = t
+		case *PdfObjectNull, nil:
+			// No decode params set.
+		default:
+			common.Log.Debug("Error: DecodeParms not a dictionary (%T)", obj)
+			return nil, fmt.Errorf("invalid DecodeParms")
 		}
 	}
 	if decodeParams == nil {
@@ -1898,8 +1898,8 @@ func (enc *CCITTFaxEncoder) DecodeBytes(encoded []byte) ([]byte, error) {
 		EndOfBlock:             enc.EndOfBlock,
 		BlackIs1:               enc.BlackIs1,
 		DamagedRowsBeforeError: enc.DamagedRowsBeforeError,
-		Rows:                   enc.Rows,
-		EncodedByteAlign:       enc.EncodedByteAlign,
+		Rows:             enc.Rows,
+		EncodedByteAlign: enc.EncodedByteAlign,
 	}
 
 	pixels, err := encoder.Decode(encoded)
@@ -1942,14 +1942,15 @@ func (enc *CCITTFaxEncoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, er
 }
 
 // EncodeBytes encodes the image data using either Group3 or Group4 CCITT facsimile (fax) encoding.
+// `data` is expected to be 1 color component, 1 byte per component.
 func (enc *CCITTFaxEncoder) EncodeBytes(data []byte) ([]byte, error) {
 	var pixels [][]byte
 
-	for i := 0; i < len(data); i += 3 * enc.Columns {
+	for i := 0; i < len(data); i += enc.Columns {
 		pixelsRow := make([]byte, enc.Columns)
 
 		pixel := 0
-		for j := 0; j < 3*enc.Columns; j += 3 {
+		for j := 0; j < enc.Columns; j++ {
 			if data[i+j] == 255 {
 				pixelsRow[pixel] = 1
 			} else {
@@ -1969,8 +1970,8 @@ func (enc *CCITTFaxEncoder) EncodeBytes(data []byte) ([]byte, error) {
 		EndOfBlock:             enc.EndOfBlock,
 		BlackIs1:               enc.BlackIs1,
 		DamagedRowsBeforeError: enc.DamagedRowsBeforeError,
-		Rows:                   enc.Rows,
-		EncodedByteAlign:       enc.EncodedByteAlign,
+		Rows:             enc.Rows,
+		EncodedByteAlign: enc.EncodedByteAlign,
 	}
 
 	return encoder.Encode(pixels), nil

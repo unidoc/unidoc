@@ -76,14 +76,19 @@ type StdFont struct {
 	encoder textencoding.TextEncoder
 }
 
-// NewStdFont returns a new instance of the font with a default encoder set (WinAnsiEncoding).
+// NewStdFont returns a new instance of the font with a default encoder set (StandardEncoding).
 func NewStdFont(desc Descriptor, metrics map[rune]CharMetrics) StdFont {
-	enc := textencoding.NewWinAnsiEncoder() // Default
-	return NewStdFontWithEncoding(desc, metrics, enc)
+	return NewStdFontWithEncoding(desc, metrics, textencoding.NewStandardEncoder())
 }
 
 // NewStdFontWithEncoding returns a new instance of the font with a specified encoder.
 func NewStdFontWithEncoding(desc Descriptor, metrics map[rune]CharMetrics, encoder textencoding.TextEncoder) StdFont {
+	var nbsp rune = 0xA0
+	if _, ok := metrics[nbsp]; !ok {
+		// Use same metrics for 0xA0 (no-break space) and 0x20 (space).
+		metrics[nbsp] = metrics[0x20]
+	}
+
 	return StdFont{
 		desc:    desc,
 		metrics: metrics,

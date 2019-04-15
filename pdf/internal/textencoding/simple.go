@@ -69,8 +69,13 @@ func newSimpleEncoderFromMap(name string, encoding map[byte]rune) SimpleEncoder 
 		decode:   encoding,
 		encode:   make(map[rune]byte, len(encoding)),
 	}
+
+	// If more than one charcodes map to the same rune in `encoding` charcode->rune map then always
+	// use the lower charcode in the `se.encode` rune->charcode map for consistency.
 	for b, r := range se.decode {
-		se.encode[r] = b
+		if b2, has := se.encode[r]; !has || b < b2 {
+			se.encode[r] = b
+		}
 	}
 	return se
 }
@@ -242,8 +247,12 @@ type simpleMapping struct {
 
 func (m *simpleMapping) init() {
 	m.encode = make(map[rune]byte, len(m.decode))
+	// If more than one charcodes map to the same rune in encoding charcode->rune map then always
+	// use the lower charcode in the `se.encode` rune->charcode map for consistency.
 	for b, r := range m.decode {
-		m.encode[r] = b
+		if b2, has := m.encode[r]; !has || b < b2 {
+			m.encode[r] = b
+		}
 	}
 }
 
