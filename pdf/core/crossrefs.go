@@ -41,8 +41,8 @@ type XrefObject struct {
 	OsObjIndex  int
 }
 
-// XrefTable is a map between object number and corresponding XrefObject.
-// TODO: Consider changing to a slice, so can maintain the object order without sorting when analyzing.
+// XrefTable represents the cross references in a PDF, i.e. the table of objects and information
+// where to access within the PDF file.
 type XrefTable struct {
 	ObjectMap map[int]XrefObject // Maps object number to XrefObject
 
