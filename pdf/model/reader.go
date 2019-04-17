@@ -219,6 +219,10 @@ func (r *PdfReader) loadStructure() error {
 		common.Log.Debug("ERROR: Pages count object invalid")
 		return errors.New("pages count invalid")
 	}
+	if _, ok = core.GetName(pages.Get("Type")); !ok {
+		common.Log.Debug("Pages dict Type field not set. Setting Type to Pages.")
+		pages.Set("Type", core.MakeName("Pages"))
+	}
 
 	r.root = root
 	r.catalog = catalog
@@ -276,7 +280,12 @@ func (r *PdfReader) loadOutlines() (*PdfOutlineTreeNode, error) {
 
 	outlineRoot, ok := outlineRootObj.(*core.PdfIndirectObject)
 	if !ok {
-		return nil, errors.New("outline root should be an indirect object")
+		if _, ok := core.GetDict(outlineRootObj); !ok {
+			return nil, errors.New("outline root should be an indirect object")
+		}
+
+		common.Log.Debug("Outline root is a dict. Should be an indirect object")
+		outlineRoot = core.MakeIndirectObject(outlineRootObj)
 	}
 
 	dict, ok := outlineRoot.PdfObject.(*core.PdfObjectDictionary)
