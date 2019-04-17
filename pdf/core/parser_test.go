@@ -722,10 +722,10 @@ func TestMinimalPDFFile(t *testing.T) {
 
 	require.Len(t, parser.xrefs.ObjectMap, 4)
 	require.Equal(t, 1, parser.xrefs.ObjectMap[1].ObjectNumber)
-	require.Equal(t, 18, parser.xrefs.ObjectMap[1].Offset)
+	require.Equal(t, int64(18), parser.xrefs.ObjectMap[1].Offset)
 	require.Equal(t, XrefTypeTableEntry, parser.xrefs.ObjectMap[1].XType)
 	require.Equal(t, 3, parser.xrefs.ObjectMap[3].ObjectNumber)
-	require.Equal(t, 178, parser.xrefs.ObjectMap[3].Offset)
+	require.Equal(t, int64(178), parser.xrefs.ObjectMap[3].Offset)
 	require.Equal(t, XrefTypeTableEntry, parser.xrefs.ObjectMap[3].XType)
 
 	// Check catalog object.
@@ -761,7 +761,7 @@ func TestMinimalPDFFile(t *testing.T) {
 
 	f1Dict, ok := fontDict.Get("F1").(*PdfObjectDictionary)
 	require.True(t, ok)
-	require.Len(t, f1Dict.Keys(), 4)
+	require.Len(t, f1Dict.Keys(), 3)
 
 	baseFont, ok := f1Dict.Get("BaseFont").(*PdfObjectName)
 	require.True(t, ok)
