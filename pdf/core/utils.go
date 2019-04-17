@@ -91,7 +91,7 @@ func resolveReferencesDeep(o PdfObject, depth int, traversed map[PdfObject]struc
 		return resolveReferencesDeep(so.PdfObjectDictionary, depth+1, traversed)
 	case *PdfObjectDictionary:
 		dict := t
-		//common.Log.Trace("- dict: %s", dict)
+		common.Log.Trace("- dict: %s", dict)
 		for _, name := range dict.Keys() {
 			v := dict.Get(name)
 			if ref, isRef := v.(*PdfObjectReference); isRef {
