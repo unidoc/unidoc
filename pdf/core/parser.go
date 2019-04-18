@@ -1076,7 +1076,7 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 				obj := XrefObject{ObjectNumber: objNum,
 					XType: XrefTypeObjectStream, OsObjNumber: int(n2), OsObjIndex: int(n3)}
 				parser.xrefs.ObjectMap[objNum] = obj
-				common.Log.Trace("entry: %+v", parser.xrefs.ObjectMap[objNum])
+				common.Log.Trace("entry: %+v", obj)
 			}
 		} else {
 			common.Log.Debug("ERROR: --------INVALID TYPE XrefStm invalid?-------")
@@ -1360,7 +1360,7 @@ func (parser *PdfParser) xrefNextObjectOffset(offset int64) int64 {
 			}
 		}
 
-		// Sort by offset, descending.
+		// Sort by offset, ascending.
 		sort.Slice(parser.xrefs.sortedObjects, func(i, j int) bool {
 			return parser.xrefs.sortedObjects[i].Offset < parser.xrefs.sortedObjects[j].Offset
 		})
