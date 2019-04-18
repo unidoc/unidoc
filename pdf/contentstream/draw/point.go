@@ -11,7 +11,7 @@ import (
 	"github.com/unidoc/unidoc/pdf/internal/transform"
 )
 
-// Point represents two-dimensional point.
+// Point represents a two-dimensional point.
 type Point struct {
 	X float64
 	Y float64
