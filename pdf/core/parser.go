@@ -708,6 +708,13 @@ func (parser *PdfParser) parsePdfVersion() (int, int, error) {
 			return 0, 0, err
 		}
 
+		// Create a new offset reader that ignores the invalid data before
+		// the PDF version.
+		parser.rs, err = newOffsetReader(parser.rs, parser.GetFileOffset()-8)
+		if err != nil {
+			return 0, 0, err
+		}
+
 		return major, minor, nil
 	}
 
@@ -1612,19 +1619,7 @@ func NewParser(rs io.ReadSeeker) (*PdfParser, error) {
 	parser.ObjCache = make(objectCache)
 	parser.streamLengthReferenceLookupInProgress = map[int64]bool{}
 
-	// Start by reading the xrefs (from bottom).
-	trailer, err := parser.loadXrefs()
-	if err != nil {
-		common.Log.Debug("ERROR: Failed to load xref table! %s", err)
-		return nil, err
-	}
-
-	common.Log.Trace("Trailer: %s", trailer)
-
-	if len(parser.xrefs.ObjectMap) == 0 {
-		return nil, fmt.Errorf("empty XREF table - Invalid")
-	}
-
+	// Parse PDF version.
 	majorVersion, minorVersion, err := parser.parsePdfVersion()
 	if err != nil {
 		common.Log.Error("Unable to parse version: %v", err)
@@ -1633,8 +1628,19 @@ func NewParser(rs io.ReadSeeker) (*PdfParser, error) {
 	parser.version.Major = majorVersion
 	parser.version.Minor = minorVersion
 
-	parser.trailer = trailer
+	// Start by reading the xrefs (from bottom).
+	trailer, err := parser.loadXrefs()
+	if err != nil {
+		common.Log.Debug("ERROR: Failed to load xref table! %s", err)
+		return nil, err
+	}
+	common.Log.Trace("Trailer: %s", trailer)
 
+	if len(parser.xrefs.ObjectMap) == 0 {
+		return nil, fmt.Errorf("empty XREF table - Invalid")
+	}
+
+	parser.trailer = trailer
 	return parser, nil
 }
 
