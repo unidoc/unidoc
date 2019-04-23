@@ -194,7 +194,7 @@ func (m *Matrix) clampRange() {
 			m[i] = -maxAbsNumber
 		}
 	}
-	m.CheckMatrix()
+	// m.CheckMatrix()
 }
 
 func (m *Matrix) CheckMatrix() {
