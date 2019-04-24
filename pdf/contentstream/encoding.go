@@ -16,6 +16,7 @@ import (
 	"github.com/unidoc/unidoc/pdf/core"
 )
 
+// IsIILossy returns true if `inlineImage` is encoded with a lossy compression scheme.
 func IsIILossy(inlineImage *ContentStreamInlineImage) bool {
 	enc, err := newEncoderFromInlineImage(inlineImage)
 	if err != nil {
@@ -65,7 +66,6 @@ func newEncoderFromInlineImage(inlineImage *ContentStreamInlineImage) (core.Stre
 	// From Table 94 p. 224 (PDF32000_2008):
 	// Additional Abbreviations in an Inline Image Object:
 
-	// common.Log.Error("*** Inline image name: %+q", *filterName)
 	switch *filterName {
 	case "AHx", "ASCIIHexDecode":
 		return core.NewASCIIHexEncoder(), nil
@@ -92,8 +92,6 @@ func newEncoderFromInlineImage(inlineImage *ContentStreamInlineImage) (core.Stre
 // only when a multi filter is used.
 func newFlateEncoderFromInlineImage(inlineImage *ContentStreamInlineImage, decodeParams *core.PdfObjectDictionary) (*core.FlateEncoder, error) {
 	encoder := core.NewFlateEncoder()
-	common.Log.Debug("decodeParams 0=%#v", decodeParams)
-	common.Log.Debug("encoder 0=%#v", encoder)
 
 	// If decodeParams not provided, see if we can get from the stream.
 	if decodeParams == nil {
@@ -105,12 +103,10 @@ func newFlateEncoderFromInlineImage(inlineImage *ContentStreamInlineImage, decod
 				return nil, fmt.Errorf("invalid DecodeParms")
 			}
 			decodeParams = dp
-			common.Log.Debug("decodeParams 1=%s", decodeParams.String())
 		}
 	}
 	if decodeParams == nil {
 		// Can safely return here if no decode params, as the following depend on the decode params.
-		common.Log.Debug("encoder 1=%#v", encoder)
 		return encoder, nil
 	}
 
@@ -164,7 +160,6 @@ func newFlateEncoderFromInlineImage(inlineImage *ContentStreamInlineImage, decod
 		}
 	}
 
-	common.Log.Debug("encoder 2=%#v", encoder)
 	return encoder, nil
 }
 

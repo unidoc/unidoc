@@ -2312,6 +2312,7 @@ func (enc *MultiEncoder) EncodeBytes(data []byte) ([]byte, error) {
 	return encoded, nil
 }
 
+// IsLossy returns true if `enc` is a lossy compression scheme.
 func IsLossy(enc StreamEncoder) bool {
 	switch t := enc.(type) {
 	case *DCTEncoder, *JBIG2Encoder, *JPXEncoder:

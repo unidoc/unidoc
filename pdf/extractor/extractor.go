@@ -27,10 +27,8 @@ type Extractor struct {
 	accessCount int64
 
 	// textCount is an incrementing number used to identify XYTest objects.
-	// textCount int64
+	textCount int64
 }
-
-var textCount int64
 
 // New returns an Extractor instance for extracting content from the input PDF page.
 func New(page *model.PdfPage) (*Extractor, error) {

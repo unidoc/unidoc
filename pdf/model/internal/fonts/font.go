@@ -22,9 +22,8 @@ type Font interface {
 type CharMetrics struct {
 	Wx float64
 	Wy float64 // TODO(dennwc): none of code paths sets this to anything except 0
-	XX int     // !@#$ Debugging hack.
 }
 
 func (m CharMetrics) String() string {
-	return fmt.Sprintf("<%.1f,%.1f> {%d}", m.Wx, m.Wy, m.XX)
+	return fmt.Sprintf("<%.1f,%.1f>", m.Wx, m.Wy)
 }

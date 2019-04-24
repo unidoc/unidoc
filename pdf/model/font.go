@@ -571,7 +571,6 @@ func (font *PdfFont) GetCharMetrics(code textencoding.CharCode) (CharMetrics, bo
 	switch t := font.context.(type) {
 	case *pdfFontSimple:
 		if m, ok := t.GetCharMetrics(code); ok {
-			common.Log.Debug("## m=%s ok=%t", m, ok)
 			return m, ok
 		}
 	case *pdfFontType0:

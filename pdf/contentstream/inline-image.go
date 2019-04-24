@@ -52,7 +52,6 @@ func NewInlineImageFromImage(img model.Image, encoder core.StreamEncoder) (*Cont
 	inlineImage.Width = core.MakeInteger(img.Width)
 	inlineImage.Height = core.MakeInteger(img.Height)
 
-	common.Log.Debug("encoder=%+v", encoder)
 	encoded, err := encoder.EncodeBytes(img.Data)
 	if err != nil {
 		return nil, err
@@ -194,6 +193,7 @@ func (img *ContentStreamInlineImage) GetColorSpace(resources *model.PdfPageResou
 
 		return cs, nil
 	}
+
 }
 
 // GetEncoder returns the encoder of the inline image.

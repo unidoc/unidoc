@@ -125,8 +125,6 @@ func (k *LicenseKey) ToString() string {
 }
 
 func (k *LicenseKey) IsLicensed() bool {
-	// fmt.Println("********************************")
-	// debug.PrintStack()
 	return k.Tier != LicenseTierUnlicensed
 }
 

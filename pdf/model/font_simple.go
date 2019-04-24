@@ -134,8 +134,6 @@ func (font pdfFontSimple) GetRuneMetrics(r rune) (fonts.CharMetrics, bool) {
 
 const defaultFontWidth = 250
 
-var metricsCount = 100
-
 // GetCharMetrics returns the character metrics for the specified character code.  A bool flag is
 // returned to indicate whether or not the entry was found in the glyph to charcode mapping.
 // How it works:
@@ -145,22 +143,18 @@ var metricsCount = 100
 func (font pdfFontSimple) GetCharMetrics(code textencoding.CharCode) (fonts.CharMetrics, bool) {
 	if width, ok := font.charWidths[code]; ok {
 		if width == 0 {
-			//  /Users/pcadmin/testdata/misc/hr/engage.pdf
+			// Seen on ~testdata/misc/hr/engage.pdf
 			common.Log.Debug("width: %g->%g", width, defaultFontWidth)
 			width = defaultFontWidth
 		}
-		common.Log.Debug("~~1 code=%d m=%s", code, fonts.CharMetrics{Wx: width})
 		return fonts.CharMetrics{Wx: width}, true
 	}
 	if fonts.IsStdFont(fonts.StdFontName(font.basefont)) {
 		// PdfBox says this is what Acrobat does. Their reference is PDFBOX-2334.
-		common.Log.Debug("~~1 code=%d m=%s", code, fonts.CharMetrics{Wx: defaultFontWidth})
 		return fonts.CharMetrics{Wx: defaultFontWidth}, true
 	}
-	m := fonts.CharMetrics{Wx: defaultFontWidth, XX: metricsCount}
-	metricsCount++
-	common.Log.Debug("~~3 code=%d m=%s", code, m)
-	return m, true
+
+	return fonts.CharMetrics{Wx: defaultFontWidth}, true
 }
 
 // newSimpleFontFromPdfObject creates a pdfFontSimple from dictionary `d`. Elements of `d` that
