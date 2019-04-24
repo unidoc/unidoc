@@ -695,43 +695,45 @@ func (parser *PdfParser) ParseDict() (*PdfObjectDictionary, error) {
 // Returns the major and minor parts of the version.
 // E.g. for "PDF-1.7" would return 1 and 7.
 func (parser *PdfParser) parsePdfVersion() (int, int, error) {
-	parser.rs.Seek(0, os.SEEK_SET)
 	var offset int64 = 20
 	b := make([]byte, offset)
+	parser.rs.Seek(0, os.SEEK_SET)
 	parser.rs.Read(b)
 
-	result1 := rePdfVersion.FindStringSubmatch(string(b))
-	if len(result1) < 3 {
-		major, minor, err := parser.seekPdfVersionTopDown()
-		if err != nil {
+	// Try matching the PDF version at the start of the file, within the
+	// first 20 bytes. If the PDF version is not found, search for it
+	// starting from the top of the file.
+	var err error
+	var major, minor int
+
+	if match := rePdfVersion.FindStringSubmatch(string(b)); len(match) < 3 {
+		if major, minor, err = parser.seekPdfVersionTopDown(); err != nil {
 			common.Log.Debug("Failed recovery - unable to find version")
 			return 0, 0, err
 		}
 
 		// Create a new offset reader that ignores the invalid data before
-		// the PDF version.
+		// the PDF version. Sets reader offset at the start of the PDF
+		// version string.
 		parser.rs, err = newOffsetReader(parser.rs, parser.GetFileOffset()-8)
 		if err != nil {
 			return 0, 0, err
 		}
+	} else {
+		if major, err = strconv.Atoi(match[1]); err != nil {
+			return 0, 0, err
+		}
+		if minor, err = strconv.Atoi(match[2]); err != nil {
+			return 0, 0, err
+		}
 
-		return major, minor, nil
+		// Reset parser reader offset.
+		parser.SetFileOffset(0)
 	}
+	parser.reader = bufio.NewReader(parser.rs)
 
-	majorVersion, err := strconv.ParseInt(result1[1], 10, 64)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	minorVersion, err := strconv.ParseInt(result1[2], 10, 64)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	//version, _ := strconv.Atoi(result1[1])
-	common.Log.Debug("Pdf version %d.%d", majorVersion, minorVersion)
-
-	return int(majorVersion), int(minorVersion), nil
+	common.Log.Debug("Pdf version %d.%d", major, minor)
+	return major, minor, nil
 }
 
 // Conventional xref table starting with 'xref'.
