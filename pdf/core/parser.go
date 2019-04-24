@@ -1594,32 +1594,28 @@ func (parser *PdfParser) ParseIndirectObject() (PdfObject, error) {
 
 // NewParserFromString is used for testing purposes.
 func NewParserFromString(txt string) *PdfParser {
-	parser := PdfParser{}
-	parser.ObjCache = objectCache{}
-	buf := []byte(txt)
+	bufReader := bytes.NewReader([]byte(txt))
 
-	bufReader := bytes.NewReader(buf)
-	parser.rs = bufReader
-
-	bufferedReader := bufio.NewReader(bufReader)
-	parser.reader = bufferedReader
-
-	parser.fileSize = int64(len(txt))
-	parser.streamLengthReferenceLookupInProgress = map[int64]bool{}
-
+	parser := &PdfParser{
+		ObjCache:                              objectCache{},
+		rs:                                    bufReader,
+		reader:                                bufio.NewReader(bufReader),
+		fileSize:                              int64(len(txt)),
+		streamLengthReferenceLookupInProgress: map[int64]bool{},
+	}
 	parser.xrefs.ObjectMap = make(map[int]XrefObject)
 
-	return &parser
+	return parser
 }
 
 // NewParser creates a new parser for a PDF file via ReadSeeker. Loads the cross reference stream and trailer.
 // An error is returned on failure.
 func NewParser(rs io.ReadSeeker) (*PdfParser, error) {
-	parser := &PdfParser{}
-
-	parser.rs = rs
-	parser.ObjCache = make(objectCache)
-	parser.streamLengthReferenceLookupInProgress = map[int64]bool{}
+	parser := &PdfParser{
+		rs:                                    rs,
+		ObjCache:                              make(objectCache),
+		streamLengthReferenceLookupInProgress: map[int64]bool{},
+	}
 
 	// Parse PDF version.
 	majorVersion, minorVersion, err := parser.parsePdfVersion()
@@ -1631,18 +1627,16 @@ func NewParser(rs io.ReadSeeker) (*PdfParser, error) {
 	parser.version.Minor = minorVersion
 
 	// Start by reading the xrefs (from bottom).
-	trailer, err := parser.loadXrefs()
-	if err != nil {
+	if parser.trailer, err = parser.loadXrefs(); err != nil {
 		common.Log.Debug("ERROR: Failed to load xref table! %s", err)
 		return nil, err
 	}
-	common.Log.Trace("Trailer: %s", trailer)
+	common.Log.Trace("Trailer: %s", parser.trailer)
 
 	if len(parser.xrefs.ObjectMap) == 0 {
 		return nil, fmt.Errorf("empty XREF table - Invalid")
 	}
 
-	parser.trailer = trailer
 	return parser, nil
 }
 
