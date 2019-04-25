@@ -1109,8 +1109,15 @@ func (parser *PdfParser) parseXref() (*PdfObjectDictionary, error) {
 	var err error
 	var trailerDict *PdfObjectDictionary
 
+	// Peek 20 bytes to the left and 20 bytes to the right of
+	// the current offset. Reset to the original offset after reading.
+	const tolerance = 20
+	offset := parser.GetFileOffset()
+	parser.SetFileOffset(offset - tolerance)
+	bb, _ := parser.reader.Peek(2 * tolerance)
+	parser.SetFileOffset(offset)
+
 	// Points to xref table or xref stream object?
-	bb, _ := parser.reader.Peek(20)
 	if reIndirectObject.MatchString(string(bb)) {
 		common.Log.Trace("xref points to an object.  Probably xref object")
 		common.Log.Trace("starting with \"%s\"", string(bb))
