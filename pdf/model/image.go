@@ -164,7 +164,6 @@ func (img *Image) ToGoImage() (goimage.Image, error) {
 	aidx := 0
 
 	samples := img.GetSamples()
-	//bytesPerColor := colorComponents * int(img.BitsPerComponent) / 8
 	bytesPerColor := img.ColorComponents
 	for i := 0; i+bytesPerColor-1 < len(samples); i += bytesPerColor {
 		var c gocolor.Color
@@ -248,6 +247,15 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 		return ih.NewGrayImageFromGoImage(goimg)
 	case *goimage.RGBA:
 		m = t
+		if len(m.Pix) != 4*b.Dx()*b.Dy() {
+			// Detects when the image Pix data is not of correct format, typically happens
+			// when m.Stride does not match the image width (extra bytes at end of each line for example).
+			// Rearrange the data back such that the Pix data is arranged consistently.
+			// Disadvantage of this is that it doubles the memory use as the data is
+			// copied when creating the new structure.
+			m = goimage.NewRGBA(goimage.Rect(0, 0, b.Dx(), b.Dy()))
+			draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
+		}
 	default:
 		// Speed up jpeg encoding by converting to RGBA first.
 		// Will not be required once the golang image/jpeg package is optimized.
@@ -294,6 +302,15 @@ func (ih DefaultImageHandler) NewGrayImageFromGoImage(goimg goimage.Image) (*Ima
 	switch t := goimg.(type) {
 	case *goimage.Gray:
 		m = t
+		if len(m.Pix) != b.Dx()*b.Dy() {
+			// Detects when the image Pix data is not of correct format, typically happens
+			// when m.Stride does not match the image width (extra bytes at end of each line for example).
+			// Rearrange the data back such that the Pix data is arranged consistently.
+			// Disadvantage of this is that it doubles the memory use as the data is
+			// copied when creating the new structure.
+			m = goimage.NewGray(b)
+			draw.Draw(m, b, goimg, b.Min, draw.Src)
+		}
 	default:
 		m = goimage.NewGray(b)
 		draw.Draw(m, b, goimg, b.Min, draw.Src)
