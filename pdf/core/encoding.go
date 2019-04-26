@@ -1898,8 +1898,8 @@ func (enc *CCITTFaxEncoder) DecodeBytes(encoded []byte) ([]byte, error) {
 		EndOfBlock:             enc.EndOfBlock,
 		BlackIs1:               enc.BlackIs1,
 		DamagedRowsBeforeError: enc.DamagedRowsBeforeError,
-		Rows:             enc.Rows,
-		EncodedByteAlign: enc.EncodedByteAlign,
+		Rows:                   enc.Rows,
+		EncodedByteAlign:       enc.EncodedByteAlign,
 	}
 
 	pixels, err := encoder.Decode(encoded)
@@ -1970,8 +1970,8 @@ func (enc *CCITTFaxEncoder) EncodeBytes(data []byte) ([]byte, error) {
 		EndOfBlock:             enc.EndOfBlock,
 		BlackIs1:               enc.BlackIs1,
 		DamagedRowsBeforeError: enc.DamagedRowsBeforeError,
-		Rows:             enc.Rows,
-		EncodedByteAlign: enc.EncodedByteAlign,
+		Rows:                   enc.Rows,
+		EncodedByteAlign:       enc.EncodedByteAlign,
 	}
 
 	return encoder.Encode(pixels), nil
