@@ -1103,50 +1103,39 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 	return trailerDict, nil
 }
 
-// Parse xref table at the current file position.  Can either be a
-// standard xref table, or an xref stream.
+// Parse xref table at the current file position. Can either be a standard xref
+// table, or an xref stream.
 func (parser *PdfParser) parseXref() (*PdfObjectDictionary, error) {
-	var err error
-	var trailerDict *PdfObjectDictionary
-
-	// Peek 20 bytes to the left and 20 bytes to the right of
-	// the current offset. Reset to the original offset after reading.
-	const tolerance = 20
-	offset := parser.GetFileOffset()
-	parser.SetFileOffset(offset - tolerance)
-	bb, _ := parser.reader.Peek(2 * tolerance)
-	parser.SetFileOffset(offset)
-
-	// Points to xref table or xref stream object?
-	if reIndirectObject.MatchString(string(bb)) {
-		common.Log.Trace("xref points to an object.  Probably xref object")
-		common.Log.Trace("starting with \"%s\"", string(bb))
-		trailerDict, err = parser.parseXrefStream(nil)
-		if err != nil {
-			return nil, err
+	const bufLen = 20
+	bb, _ := parser.reader.Peek(bufLen)
+	for i := 0; i < 2; i++ {
+		if reIndirectObject.Match(bb) {
+			common.Log.Trace("xref points to an object. Probably xref object")
+			common.Log.Debug("starting with \"%s\"", string(bb))
+			return parser.parseXrefStream(nil)
 		}
-	} else if reXrefTable.MatchString(string(bb)) {
-		common.Log.Trace("Standard xref section table!")
-		var err error
-		trailerDict, err = parser.parseXrefTable()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		common.Log.Debug("Warning: Unable to find xref table or stream. Repair attempted: Looking for earliest xref from bottom.")
-		err := parser.repairSeekXrefMarker()
-		if err != nil {
-			common.Log.Debug("Repair failed - %v", err)
-			return nil, err
+		if reXrefTable.Match(bb) {
+			common.Log.Trace("Standard xref section table!")
+			return parser.parseXrefTable()
 		}
 
-		trailerDict, err = parser.parseXrefTable()
-		if err != nil {
-			return nil, err
-		}
+		// xref match failed. Peek 20 bytes to the left of the current offset,
+		// append them to the previously read buffer and try again. Reset to the
+		// original offset after reading.
+		offset := parser.GetFileOffset()
+		parser.SetFileOffset(offset - bufLen)
+		defer parser.SetFileOffset(offset)
+
+		lbb, _ := parser.reader.Peek(bufLen)
+		bb = append(lbb, bb...)
 	}
 
-	return trailerDict, err
+	common.Log.Debug("Warning: Unable to find xref table or stream. Repair attempted: Looking for earliest xref from bottom.")
+	if err := parser.repairSeekXrefMarker(); err != nil {
+		common.Log.Debug("Repair failed - %v", err)
+		return nil, err
+	}
+	return parser.parseXrefTable()
 }
 
 // Look for EOF marker and seek to its beginning.
