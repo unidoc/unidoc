@@ -13,22 +13,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/unidoc/unidoc/pdf/core"
-	"github.com/unidoc/unidoc/pdf/internal/transform"
 	"github.com/unidoc/unidoc/pdf/model"
 )
-
-type xformCpts struct {
-	X      float64
-	Y      float64
-	Width  float64
-	Height float64
-	Angle  float64
-}
-
-func (tc xformCpts) matrix() transform.Matrix {
-	return transform.NewMatrixFromTransforms(tc.Width, tc.Height, tc.Angle, tc.X, tc.Y)
-}
 
 func TestImageExtractionBasic(t *testing.T) {
 	type expectedImage struct {
@@ -43,14 +31,15 @@ func TestImageExtractionBasic(t *testing.T) {
 		Name     string
 		PageNum  int
 		Path     string
-		Expected []xformCpts
+		Expected []ImageMark
 	}{
 		{
 			"basic xobject",
 			1,
 			"./testdata/basic_xobject.pdf",
-			[]xformCpts{
+			[]ImageMark{
 				{
+					Image:  nil,
 					X:      0,
 					Y:      294.865385,
 					Width:  612,
@@ -63,8 +52,9 @@ func TestImageExtractionBasic(t *testing.T) {
 			"inline image",
 			1,
 			"./testdata/inline.pdf",
-			[]xformCpts{
+			[]ImageMark{
 				{
+					Image:  nil,
 					X:      0,
 					Y:      -0.000000358,
 					Width:  12,
@@ -95,11 +85,8 @@ func TestImageExtractionBasic(t *testing.T) {
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
 
 		for i, img := range pageImages.Images {
-			expected := ImageMark{CTM: tcase.Expected[i].matrix()}
 			img.Image = nil // Discard image data.
-			img.Inline = false
-			img.Lossy = false
-			assert.Equalf(t, expected, img, "i = %d", i)
+			assert.Equalf(t, tcase.Expected[i], img, "i = %d", i)
 		}
 	}
 }
@@ -112,7 +99,7 @@ func TestImageExtractionNestedCM(t *testing.T) {
 		Path      string
 		PrependCS string
 		AppendCS  string
-		Expected  []xformCpts
+		Expected  []ImageMark
 	}{
 		{
 			"basic xobject - translate (100,50)",
@@ -120,8 +107,9 @@ func TestImageExtractionNestedCM(t *testing.T) {
 			"./testdata/basic_xobject.pdf",
 			"1 0 0 1 100.0 50.0 cm q",
 			"Q",
-			[]xformCpts{
+			[]ImageMark{
 				{
+					Image:  nil,
 					X:      0 + 100.0,
 					Y:      294.865385 + 50.0,
 					Width:  612,
@@ -136,8 +124,9 @@ func TestImageExtractionNestedCM(t *testing.T) {
 			"./testdata/basic_xobject.pdf",
 			"1.5 0 0 2.0 0 0 cm q",
 			"Q",
-			[]xformCpts{
+			[]ImageMark{
 				{
+					Image:  nil,
 					X:      0,
 					Y:      294.865385 * 2.0,
 					Width:  612 * 1.5,
@@ -152,8 +141,9 @@ func TestImageExtractionNestedCM(t *testing.T) {
 			"./testdata/basic_xobject.pdf",
 			"1.5 0 0 2.0 0 0 cm q 1 0 0 1 100.0 50.0 cm q",
 			"Q Q",
-			[]xformCpts{
+			[]ImageMark{
 				{
+					Image:  nil,
 					X:      100.0 * 1.5,
 					Y:      (294.865385 + 50.0) * 2.0,
 					Width:  612 * 1.5,
@@ -192,9 +182,8 @@ func TestImageExtractionNestedCM(t *testing.T) {
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
 
 		for i, img := range pageImages.Images {
-			expected := ImageMark{CTM: tcase.Expected[i].matrix()}
 			img.Image = nil // Discard image data.
-			assert.Equalf(t, expected, img, "i = %d", i)
+			assert.Equalf(t, tcase.Expected[i], img, "i = %d", i)
 		}
 	}
 }
@@ -250,15 +239,12 @@ func TestImageExtractionMulti(t *testing.T) {
 			assert.Equalf(t, tcase.NumSamples, len(img.Image.GetSamples()), "i = %d", i)
 
 			// Comparison with tolerance.
-			const tolerance = 1.0e-5 // Passes with 1e-6. Fails with 1e-7. 1e-5 passes comfortably.
-			assert.Truef(t, math.Abs(w-img.CTM.ScalingFactorX()) < tolerance, "i = %d", i)
-			assert.Truef(t, math.Abs(h-img.CTM.ScalingFactorY()) < tolerance, "i = %d", i)
+			assert.Truef(t, math.Abs(w-img.Width) < 0.00001, "i = %d", i)
+			assert.Truef(t, math.Abs(h-img.Height) < 0.00001, "i = %d", i)
 
 			if i > 0 {
-				_, ty1 := pageImages.Images[i-1].CTM.Translation()
-				_, ty := pageImages.Images[i].CTM.Translation()
-				measDY := ty1 - ty
-				assert.Truef(t, math.Abs(dy-measDY) < tolerance, "i = %d", i)
+				measDY := pageImages.Images[i-1].Y - pageImages.Images[i].Y
+				assert.Truef(t, math.Abs(dy-measDY) < 0.00001, "i = %d", i)
 			}
 		}
 	}
@@ -274,14 +260,15 @@ func TestImageExtractionRealWorld(t *testing.T) {
 		Name     string
 		PageNum  int
 		Path     string
-		Expected []xformCpts
+		Expected []ImageMark
 	}{
 		{
 			"ICC color space",
 			3,
 			"icnp12-qinghua.pdf",
-			[]xformCpts{
+			[]ImageMark{
 				{
+					Image:  nil,
 					Width:  2.877,
 					Height: 22.344,
 					X:      236.508,
@@ -289,15 +276,17 @@ func TestImageExtractionRealWorld(t *testing.T) {
 					Angle:  0.0,
 				},
 				{
+					Image:  nil,
 					Width:  247.44,
-					Height: -0.48,
+					Height: 0.48,
 					X:      313.788,
 					Y:      715.248,
 					Angle:  0.0,
 				},
 				{
+					Image:  nil,
 					Width:  247.44,
-					Height: -0.48,
+					Height: 0.48,
 					X:      313.788,
 					Y:      594.648,
 					Angle:  0.0,
@@ -308,7 +297,7 @@ func TestImageExtractionRealWorld(t *testing.T) {
 			"Indexed color space",
 			1,
 			"MondayAM.pdf",
-			[]xformCpts{},
+			[]ImageMark{},
 		},
 	}
 
@@ -338,9 +327,8 @@ func TestImageExtractionRealWorld(t *testing.T) {
 		assert.Equal(t, len(tcase.Expected), len(pageImages.Images))
 
 		for i, img := range pageImages.Images {
-			expected := ImageMark{CTM: tcase.Expected[i].matrix()}
 			img.Image = nil // Discard image data.
-			assert.Equalf(t, expected, img, "i = %d", i)
+			assert.Equalf(t, tcase.Expected[i], img, "i = %d", i)
 		}
 	}
 }

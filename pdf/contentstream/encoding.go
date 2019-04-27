@@ -16,15 +16,6 @@ import (
 	"github.com/unidoc/unidoc/pdf/core"
 )
 
-// IsIILossy returns true if `inlineImage` is encoded with a lossy compression scheme.
-func IsIILossy(inlineImage *ContentStreamInlineImage) bool {
-	enc, err := newEncoderFromInlineImage(inlineImage)
-	if err != nil {
-		return false
-	}
-	return core.IsLossy(enc)
-}
-
 // newEncoderFromInlineImage creates the encoder for `inlineImage`'s Filter and DecodeParms.
 func newEncoderFromInlineImage(inlineImage *ContentStreamInlineImage) (core.StreamEncoder, error) {
 	if inlineImage.Filter == nil {
