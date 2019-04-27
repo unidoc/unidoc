@@ -247,15 +247,6 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 		return ih.NewGrayImageFromGoImage(goimg)
 	case *goimage.RGBA:
 		m = t
-		if len(m.Pix) != 4*b.Dx()*b.Dy() {
-			// Detects when the image Pix data is not of correct format, typically happens
-			// when m.Stride does not match the image width (extra bytes at end of each line for example).
-			// Rearrange the data back such that the Pix data is arranged consistently.
-			// Disadvantage of this is that it doubles the memory use as the data is
-			// copied when creating the new structure.
-			m = goimage.NewRGBA(goimage.Rect(0, 0, b.Dx(), b.Dy()))
-			draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
-		}
 	default:
 		// Speed up jpeg encoding by converting to RGBA first.
 		// Will not be required once the golang image/jpeg package is optimized.
@@ -263,20 +254,29 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 		draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
 	}
 
-	numPixels := len(m.Pix) / 4
+	numPixels := b.Dx() * b.Dy()
 	data := make([]byte, 3*numPixels)
 	alphaData := make([]byte, numPixels)
 	hasAlpha := false
 
-	for i := 0; i < numPixels; i++ {
-		data[3*i], data[3*i+1], data[3*i+2] = m.Pix[4*i], m.Pix[4*i+1], m.Pix[4*i+2]
+	i0 := m.PixOffset(b.Min.X, b.Min.Y)
+	i1 := i0 + b.Dx()*4
 
-		alpha := m.Pix[4*i+3]
-		if alpha != 255 {
-			// If all alpha values are 255 (opaque), means that the alpha transparency channel is unnecessary.
-			hasAlpha = true
+	j := 0
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for i := i0; i < i1; i += 4 {
+			data[3*j], data[3*j+1], data[3*j+2] = m.Pix[i], m.Pix[i+1], m.Pix[i+2]
+			alpha := m.Pix[i+3]
+			if alpha != 255 {
+				// If all alpha values are 255 (opaque), means that the alpha transparency channel is unnecessary.
+				hasAlpha = true
+			}
+			alphaData[j] = alpha
+			j++
 		}
-		alphaData[i] = alpha
+
+		i0 += m.Stride
+		i1 += m.Stride
 	}
 
 	imag := Image{}
@@ -284,7 +284,7 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 	imag.Height = int64(b.Dy())
 	imag.BitsPerComponent = 8 // RGBA colormap
 	imag.ColorComponents = 3
-	imag.Data = data // buf.Bytes()
+	imag.Data = data
 
 	imag.hasAlpha = hasAlpha
 	if hasAlpha {
