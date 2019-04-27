@@ -662,6 +662,7 @@ func (r *PdfReader) newPdfFieldFromIndirectObject(container *core.PdfIndirectObj
 				return nil, errors.New("invalid widget annotation")
 			}
 			widget.parent = field
+			widget.Parent = field.container
 
 			field.Annotations = append(field.Annotations, widget)
 
