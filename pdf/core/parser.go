@@ -1106,6 +1106,10 @@ func (parser *PdfParser) parseXrefStream(xstm *PdfObjectInteger) (*PdfObjectDict
 // Parse xref table at the current file position. Can either be a standard xref
 // table, or an xref stream.
 func (parser *PdfParser) parseXref() (*PdfObjectDictionary, error) {
+	// Search xrefs within 20 bytes of the current location. If the first
+	// iteration of the loop is unable to find a match, peek another 20 bytes
+	// left of the current location, add them to the previously read buffer
+	// and try again.
 	const bufLen = 20
 	bb, _ := parser.reader.Peek(bufLen)
 	for i := 0; i < 2; i++ {
