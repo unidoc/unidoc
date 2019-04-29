@@ -24,10 +24,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/unidoc/unidoc/pdf/internal/jbig2"
+	"github.com/unidoc/unidoc/pdf/internal/jbig2/bitmap"
 	goimage "image"
 	gocolor "image/color"
 	"image/jpeg"
 	"io"
+	"runtime/debug"
 
 	// Need two slightly different implementations of LZW (EarlyChange parameter).
 	lzw0 "compress/lzw"
@@ -2044,22 +2046,37 @@ func (j *JBIG2Encoder) DecodeStream(streamObj *PdfObjectStream) ([]byte, error) 
 	// }
 }
 
-func (j *JBIG2Encoder) decodeBytes(encoded []byte) ([]byte, error) {
-	doc, err := jbig2.NewDocument(encoded)
+func (j *JBIG2Encoder) decodeBytes(encoded []byte) (data []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch e := r.(type) {
+			case error:
+				err = e
+			default:
+				err = fmt.Errorf("JBIG2 Decode bytes unknown error: %v", e)
+			}
+			common.Log.Error("Recovered from panic while Decodeing JBIG2 files. Trace: %s", string(debug.Stack()))
+
+		}
+	}()
+	var doc *jbig2.Document
+	doc, err = jbig2.NewDocument(encoded)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// the document should have only one page
-	page, err := doc.GetPage(1)
+	var page *jbig2.Page
+	page, err = doc.GetPage(1)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// get the page data
-	bm, err := page.GetBitmap()
+	var bm *bitmap.Bitmap
+	bm, err = page.GetBitmap()
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	return bm.GetVanillaData(), nil
