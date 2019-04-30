@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/unidoc/unidoc/pdf/internal/jbig2"
 	"github.com/unidoc/unidoc/pdf/internal/jbig2/bitmap"
+	"github.com/unidoc/unidoc/pdf/internal/jbig2/segments"
 	goimage "image"
 	gocolor "image/color"
 	"image/jpeg"
@@ -2066,7 +2067,7 @@ func (j *JBIG2Encoder) decodeBytes(encoded []byte) (data []byte, err error) {
 	}
 
 	// the document should have only one page
-	var page *jbig2.Page
+	var page segments.Pager
 	page, err = doc.GetPage(1)
 	if err != nil {
 		return
