@@ -250,9 +250,9 @@ func (ih DefaultImageHandler) NewImageFromGoImage(goimg goimage.Image) (*Image, 
 	default:
 		// Speed up jpeg encoding by converting to RGBA first.
 		// Will not be required once the golang image/jpeg package is optimized.
-		b = goimage.Rect(0, 0, b.Dx(), b.Dy())
-		m = goimage.NewRGBA(b)
-		draw.Draw(m, b, goimg, b.Min, draw.Src)
+		m = goimage.NewRGBA(goimage.Rect(0, 0, b.Dx(), b.Dy()))
+		draw.Draw(m, m.Bounds(), goimg, b.Min, draw.Src)
+		b = m.Bounds()
 	}
 
 	numPixels := b.Dx() * b.Dy()
