@@ -440,17 +440,29 @@ func (csp *ContentStreamParser) ParseInlineImage() (*ContentStreamInlineImage, e
 						if core.IsWhiteSpace(c) {
 							// Whitspace after EI.
 							// To ensure that is not a part of encoded image data: Peek up to 20 bytes ahead
-							// and ensure there is at least one valid object or operand following.
+							// and check that the following data is valid objects/operands.
 							peekbytes, err := csp.reader.Peek(20)
 							if err != nil && err != io.EOF {
 								return nil, err
 							}
 							dummyParser := NewContentStreamParser(string(peekbytes))
-							op, isOp, err := dummyParser.parseObject()
-							if err != nil && err != io.EOF {
-								return nil, err
+
+							// Assume is done, check that the following 3 objects/operands are valid.
+							isDone := true
+							for i := 0; i < 3; i++ {
+								op, isOp, err := dummyParser.parseObject()
+								if err != nil && err != io.EOF {
+									continue
+								}
+								if err == io.EOF {
+									break
+								}
+								if isOp && !isValidOperand(op.String()) {
+									isDone = false
+								}
 							}
-							if !isOp || isOp && isValidOperand(op.String()) {
+
+							if isDone {
 								// Valid object or operand found, i.e. the EI marks the end of the data.
 								// -> image data finished.
 								if len(im.stream) > 100 {
