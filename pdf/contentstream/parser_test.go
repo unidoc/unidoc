@@ -205,6 +205,38 @@ EI`,
 				},
 			},
 		},
+		// Case 6. Very long object after EI, check that handles as image data finished.
+		{
+			`
+q Q
+BI
+/CS/RGB
+/W 902
+/H 1
+/BPC 8
+/F/Fl
+ID x<9a>
+EI (Very long string that is going to be only partially parser 123456789012345678901234567890) Tj`,
+			ContentStreamOperations{
+				&ContentStreamOperation{Operand: "q"},
+				&ContentStreamOperation{Operand: "Q"},
+				&ContentStreamOperation{Operand: "BI",
+					Params: []core.PdfObject{&ContentStreamInlineImage{
+						ColorSpace:       core.MakeName("RGB"),
+						Width:            core.MakeInteger(902),
+						Height:           core.MakeInteger(1),
+						BitsPerComponent: core.MakeInteger(8),
+						Filter:           core.MakeName("Fl"),
+						stream:           []byte("x<9a>"),
+					}},
+				},
+				&ContentStreamOperation{Operand: "Tj",
+					Params: []core.PdfObject{
+						core.MakeString("Very long string that is going to be only partially parser 123456789012345678901234567890"),
+					},
+				},
+			},
+		},
 	}
 
 	for i, tcase := range testcases {
