@@ -744,7 +744,8 @@ func (w *PdfWriter) writeObject(num int, obj core.PdfObject) {
 		for index, obj := range ostreams.Elements() {
 			io, isIndirect := obj.(*core.PdfIndirectObject)
 			if !isIndirect {
-				common.Log.Error("Object streams N %d contains non indirect pdf object %v", num, obj)
+				common.Log.Debug("ERROR: Object streams N %d contains non indirect pdf object %v", num, obj)
+				continue
 			}
 			data := io.PdfObject.WriteString() + " "
 			objData = objData + data
@@ -754,7 +755,8 @@ func (w *PdfWriter) writeObject(num int, obj core.PdfObject) {
 		}
 		offsetsStr := strings.Join(offsets, " ") + " "
 		encoder := core.NewFlateEncoder()
-		//encoder := NewRawEncoder()
+		// For debugging:
+		//encoder := core.NewRawEncoder()
 		dict := encoder.MakeStreamDict()
 		dict.Set(core.PdfObjectName("Type"), core.MakeName("ObjStm"))
 		n := int64(ostreams.Len())
@@ -803,6 +805,9 @@ func (w *PdfWriter) updateObjectNumbers() {
 		case *core.PdfObjectStreams:
 			o.ObjectNumber = objNum
 			o.GenerationNumber = 0
+		default:
+			common.Log.Debug("ERROR: Unknown type %T - skipping")
+			continue
 		}
 
 		if increase {
@@ -985,16 +990,16 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		useCrossReferenceStream = *w.useCrossReferenceStream
 	}
 
+	// Make a map of objects within object streams (if used).
 	objectsInObjectStreams := make(map[core.PdfObject]bool)
-	if !useCrossReferenceStream {
-		for _, obj := range w.objects {
-			if objStm, isObjectStreams := obj.(*core.PdfObjectStreams); isObjectStreams {
-				useCrossReferenceStream = true
-				for _, obj := range objStm.Elements() {
-					objectsInObjectStreams[obj] = true
-					if io, isIndirectObj := obj.(*core.PdfIndirectObject); isIndirectObj {
-						objectsInObjectStreams[io.PdfObject] = true
-					}
+	for _, obj := range w.objects {
+		if objStm, isObjectStreams := obj.(*core.PdfObjectStreams); isObjectStreams {
+			// Objects in object streams can only be referenced from an xref stream (not table).
+			useCrossReferenceStream = true
+			for _, obj := range objStm.Elements() {
+				objectsInObjectStreams[obj] = true
+				if io, isIndirectObj := obj.(*core.PdfIndirectObject); isIndirectObj {
+					objectsInObjectStreams[io.PdfObject] = true
 				}
 			}
 		}
@@ -1034,25 +1039,24 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 	}
 
 	// Write out indirect/stream objects that are not in object streams.
-	offset := w.ObjNumOffset
-	i := 0
 	for _, obj := range w.objects {
 		if skip := objectsInObjectStreams[obj]; skip {
 			continue
 		}
 
-		objectNumber := int64(i + 1 + offset)
-		common.Log.Trace("Writing %d", objectNumber)
-		incrementi := true
-		if w.appendMode {
-			if replaceNumber, has := w.appendReplaceMap[obj]; has {
-				objectNumber = replaceNumber
-				incrementi = false
-			}
+		objectNumber := int64(0)
+		switch t := obj.(type) {
+		case *core.PdfIndirectObject:
+			objectNumber = t.ObjectNumber
+		case *core.PdfObjectStream:
+			objectNumber = t.ObjectNumber
+		case *core.PdfObjectStreams:
+			objectNumber = t.ObjectNumber
+		default:
+			common.Log.Debug("ERROR: Unsupported type in writer objects: %T", obj)
+			return ErrTypeCheck
 		}
-		if incrementi {
-			i++
-		}
+
 		// Encrypt prior to writing.
 		// Encrypt dictionary should not be encrypted.
 		if w.crypter != nil && obj != w.encryptObj {
@@ -1084,8 +1088,8 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		for idx <= maxIndex {
 			// Find next to write.
 			for ; idx <= maxIndex; idx++ {
-				_, has := w.crossReferenceMap[idx]
-				if has {
+				ref, has := w.crossReferenceMap[idx]
+				if has && (!w.appendMode || w.appendMode && (ref.Type == 1 && ref.Offset >= w.appendPrevRevisionSize || ref.Type == 0)) {
 					break
 				}
 			}
@@ -1129,7 +1133,7 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		crossReferenceStream.PdfObjectDictionary.Set("Type", core.MakeName("XRef"))
 		crossReferenceStream.PdfObjectDictionary.Set("W", core.MakeArray(core.MakeInteger(1), core.MakeInteger(4), core.MakeInteger(2)))
 		crossReferenceStream.PdfObjectDictionary.Set("Index", index)
-		crossReferenceStream.PdfObjectDictionary.Set("Size", core.MakeInteger(int64(maxIndex+1)))
+		crossReferenceStream.PdfObjectDictionary.Set("Size", core.MakeInteger(int64(crossObjNumber+1)))
 		crossReferenceStream.PdfObjectDictionary.Set("Info", w.infoObj)
 		crossReferenceStream.PdfObjectDictionary.Set("Root", w.root)
 		if w.appendMode && w.appendXrefPrevOffset > 0 {
