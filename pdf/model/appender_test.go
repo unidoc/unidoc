@@ -1273,6 +1273,127 @@ func TestSignatureAppearance(t *testing.T) {
 	validateFile(t, outPath)
 }
 
+// Multiple revisions of signing with appearances.
+func TestAppenderSignMultipleAppearances(t *testing.T) {
+	inputPath := testPdf3pages
+
+	for i := 0; i < 3; i++ {
+		t.Logf("======================================")
+		t.Logf("--> Signature revision %d", i+1)
+		t.Logf("Input %s", inputPath)
+		f, err := os.Open(inputPath)
+		if err != nil {
+			t.Errorf("Fail: %v\n", err)
+			return
+		}
+
+		pdfReader, err := model.NewPdfReader(f)
+		if err != nil {
+			t.Errorf("Fail: %v\n", err)
+			f.Close()
+			return
+		}
+
+		numPages, err := pdfReader.GetNumPages()
+		if err != nil {
+			t.Errorf("Fail: %v\n", err)
+			return
+		}
+
+		t.Logf("Fields: %d", len(pdfReader.AcroForm.AllFields()))
+		if len(pdfReader.AcroForm.AllFields()) != i*numPages {
+			t.Fatalf("fields != %d (got %d)", i*numPages, len(pdfReader.AcroForm.AllFields()))
+		}
+
+		annotations, err := pdfReader.PageList[0].GetAnnotations()
+		require.NoError(t, err)
+		t.Logf("Annotations: %d", len(annotations))
+		if len(annotations) != i {
+			t.Fatalf("page annotations != %d (got %d)", i, len(annotations))
+		}
+		for j, annot := range annotations {
+			t.Logf("i=%d Annots page object equal? %v == %v?", j, pdfReader.PageList[0].GetContainingPdfObject(), annot.P)
+			require.Equal(t, pdfReader.PageList[0].GetContainingPdfObject(), annot.P)
+		}
+
+		appender, err := model.NewPdfAppender(pdfReader)
+		if err != nil {
+			t.Errorf("Fail: %v\n", err)
+			f.Close()
+			return
+		}
+
+		pfxData, _ := ioutil.ReadFile("./testdata/JohnSmith.pfx")
+		privateKey, cert, err := pkcs12.Decode(pfxData, "password")
+		if err != nil {
+			t.Errorf("Fail: %v\n", err)
+			f.Close()
+			return
+		}
+
+		handler, err := sighandler.NewAdobePKCS7Detached(privateKey.(*rsa.PrivateKey), cert)
+		if err != nil {
+			t.Errorf("Fail: %v\n", err)
+			f.Close()
+			return
+		}
+
+		// Create signature field and appearance.
+		signature := model.NewPdfSignature(handler)
+		signature.SetName(fmt.Sprintf("Test Appender - Round %d", i+1))
+		signature.SetReason(fmt.Sprintf("Test Appender - Round %d", i+1))
+		signature.SetDate(time.Now(), "")
+
+		if err := signature.Initialize(); err != nil {
+			return
+		}
+
+		for j := 0; j < numPages; j++ {
+			pageNum := j + 1
+
+			opts := annotator.NewSignatureFieldOpts()
+			opts.BorderSize = 1
+			opts.FontSize = 10
+			opts.Rect = []float64{float64(200*i) + 50, 25, float64(200*i) + 150, 80}
+			opts.FillColor = model.NewPdfColorDeviceRGB(255, 255, 0)
+			opts.TextColor = model.NewPdfColorDeviceRGB(0, 0, 200)
+
+			sigField, err := annotator.NewSignatureField(
+				signature,
+				[]*annotator.SignatureLine{
+					annotator.NewSignatureLine("Name", fmt.Sprintf("John Smith %d", i+1)),
+					annotator.NewSignatureLine("Date", fmt.Sprintf("2019.0%d.%d", i+1, i+1)),
+					annotator.NewSignatureLine("Reason", fmt.Sprintf("Reason %d", i+1)),
+					annotator.NewSignatureLine("Location", "New York"),
+					annotator.NewSignatureLine("DN", fmt.Sprintf("authority%d:name%d", i+1, i+1)),
+				},
+				opts,
+			)
+			sigField.T = core.MakeString(fmt.Sprintf("Signature %d-%d", i+1, j+1))
+
+			if err = appender.Sign(pageNum, sigField); err != nil {
+				t.Errorf("Fail: %v\n", err)
+				f.Close()
+				return
+			}
+		}
+
+		outPath := tempFile(fmt.Sprintf("appender_sign_multiple_appearances_%d.pdf", i+1))
+		t.Logf("Signing to %s", outPath)
+
+		if err = appender.WriteToFile(outPath); err != nil {
+			t.Errorf("Fail: %v\n", err)
+			f.Close()
+			return
+		}
+
+		//validateFile(t, outPath)
+		inputPath = outPath
+
+		f.Close()
+	}
+}
+
 func TestAppenderExternalSignature(t *testing.T) {
 	validateFile(t, testPdfSignedPDFDocument)
 
