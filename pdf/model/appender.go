@@ -491,6 +491,9 @@ func (a *PdfAppender) Sign(pageNum int, field *PdfFieldSignature) error {
 	page.AddAnnotation(field.PdfAnnotationWidget.PdfAnnotation)
 
 	// Add signature field to the form.
+	if a.acroForm == a.roReader.AcroForm {
+		a.acroForm = a.Reader.AcroForm
+	}
 	acroForm := a.acroForm
 	if acroForm == nil {
 		acroForm = NewPdfAcroForm()
@@ -500,7 +503,6 @@ func (a *PdfAppender) Sign(pageNum int, field *PdfFieldSignature) error {
 	fields := append(acroForm.AllFields(), field.PdfField)
 	acroForm.Fields = &fields
 	a.ReplaceAcroForm(acroForm)
-	a.addNewObject(acroForm.GetContainingPdfObject())
 
 	// Replace original page.
 	a.UpdatePage(page)
