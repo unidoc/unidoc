@@ -451,14 +451,15 @@ func (csp *ContentStreamParser) ParseInlineImage() (*ContentStreamInlineImage, e
 							isDone := true
 							for i := 0; i < 3; i++ {
 								op, isOp, err := dummyParser.parseObject()
-								if err != nil && err != io.EOF {
+								if err != nil {
+									if err == io.EOF {
+										break
+									}
 									continue
-								}
-								if err == io.EOF {
-									break
 								}
 								if isOp && !isValidOperand(op.String()) {
 									isDone = false
+									break
 								}
 							}
 
