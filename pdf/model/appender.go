@@ -158,7 +158,7 @@ func NewPdfAppender(reader *PdfReader) (*PdfAppender, error) {
 }
 
 // updatesObjectsDeep recursively marks all objects under `obj` as updated appender (deep).
-// Updated objects are appender to the new revision and keep their original object number.
+// Updated objects are appended to the new revision and keep their original object number.
 func (a *PdfAppender) updateObjectsDeep(obj core.PdfObject, processed map[core.PdfObject]struct{}) {
 	if processed == nil {
 		processed = map[core.PdfObject]struct{}{}
@@ -437,7 +437,7 @@ func (a *PdfAppender) replaceObject(obj, replacement core.PdfObject) {
 	}
 }
 
-// UpdateObject marks `obj` as updated and to be included an updated revision.
+// UpdateObject marks `obj` as updated and to be included in the following revision.
 func (a *PdfAppender) UpdateObject(obj core.PdfObject) {
 	a.replaceObject(obj, obj)
 	if _, has := a.hasNewObject[obj]; !has {
@@ -709,10 +709,7 @@ func (a *PdfAppender) Write(w io.Writer) error {
 
 	xrefType := a.parser.GetXrefType()
 	if xrefType != nil {
-		v := false
-		if *xrefType == core.XrefTypeObjectStream {
-			v = true
-		}
+		v := *xrefType == core.XrefTypeObjectStream
 		writer.useCrossReferenceStream = &v
 	}
 

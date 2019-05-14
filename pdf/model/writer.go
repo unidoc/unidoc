@@ -1084,8 +1084,7 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		crossReferenceData := bytes.NewBuffer(nil)
 
 		index := core.MakeArray()
-		idx := 0
-		for idx <= maxIndex {
+		for idx := 0; idx <= maxIndex; {
 			// Find next to write.
 			for ; idx <= maxIndex; idx++ {
 				ref, has := w.crossReferenceMap[idx]
@@ -1149,8 +1148,7 @@ func (w *PdfWriter) Write(writer io.Writer) error {
 		w.writeObject(int(crossReferenceStream.ObjectNumber), crossReferenceStream)
 	} else {
 		w.writeString("xref\r\n")
-		idx := 0
-		for idx <= maxIndex {
+		for idx := 0; idx <= maxIndex; {
 			// Find next to write.
 			for ; idx <= maxIndex; idx++ {
 				ref, has := w.crossReferenceMap[idx]
